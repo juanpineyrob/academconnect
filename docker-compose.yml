@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: academconnect-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: academconnect
+      POSTGRES_USER: academconnect
+      POSTGRES_PASSWORD: academconnect
+    ports:
+      - "5432:5432"
+    volumes:
+      - academconnect-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U academconnect -d academconnect"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  academconnect-pgdata:
