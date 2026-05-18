@@ -9,6 +9,8 @@ import com.academconnect.domain.SolicitudVinculacion;
 
 public interface SolicitudVinculacionRepository extends JpaRepository<SolicitudVinculacion, Long> {
 
+    List<SolicitudVinculacion> findByTrabajoId(Long trabajoId);
+
     List<SolicitudVinculacion> findByTrabajoIdAndEstado(Long trabajoId, EstadoSolicitud estado);
 
     List<SolicitudVinculacion> findByEstudianteId(Long estudianteId);
