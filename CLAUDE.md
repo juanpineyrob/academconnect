@@ -32,6 +32,12 @@ Active profile: `SPRING_PROFILES_ACTIVE` (default `dev`).
 - **MapStruct 1.6.3** + Lombok (via `lombok-mapstruct-binding`) — DTO ↔ entity mappers.
 - **Testcontainers 2.0.5** — note the renamed artifacts: `testcontainers-junit-jupiter`, `testcontainers-postgresql` (Testcontainers 2.x dropped the bare names).
 
+**Spring Boot 4 modularization gotcha**: many auto-configurations and test slices moved to their own modules + new packages:
+- Flyway integration needs `spring-boot-starter-flyway` (not just `flyway-core` + `flyway-database-postgresql` — those ship the engine but no auto-configuration, so migrations silently won't run and Hibernate `validate` fails with "missing table").
+- `@DataJpaTest` lives in `org.springframework.boot.data.jpa.test.autoconfigure` (was `…test.autoconfigure.orm.jpa`).
+- `@AutoConfigureTestDatabase` lives in `org.springframework.boot.jdbc.test.autoconfigure` (was `…test.autoconfigure.jdbc`).
+- The umbrella `spring-boot-starter-test` still pulls these in transitively via the test starters, so no extra dependency is needed.
+
 ## Architecture
 
 Layered: `controller` → `service` → `repository` (Spring Data JPA) → PostgreSQL. DTOs in `dto/`, mappers in `mapper/`, domain entities in `domain/`.
