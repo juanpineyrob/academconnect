@@ -1,5 +1,11 @@
 package com.academconnect.service;
 
+import java.util.List;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.academconnect.dto.ExternoRequest;
 import com.academconnect.dto.ExternoResponse;
 import com.academconnect.exception.BusinessException;
@@ -7,11 +13,8 @@ import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.mapper.ExternoMapper;
 import com.academconnect.repository.ExternoRepository;
 import com.academconnect.repository.UsuarioRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @Transactional(readOnly = true)
@@ -21,6 +24,7 @@ public class ExternoService {
     private final ExternoRepository externoRepository;
     private final UsuarioRepository usuarioRepository;
     private final ExternoMapper mapper;
+    private final PasswordEncoder passwordEncoder;
 
     public List<ExternoResponse> listar() {
         return externoRepository.findAll().stream()
@@ -40,6 +44,7 @@ public class ExternoService {
             throw new BusinessException("Ya existe un usuario con el email: " + request.email());
         }
         var externo = mapper.toEntity(request);
+        externo.setPassword(passwordEncoder.encode(request.password()));
         return mapper.toResponse(externoRepository.save(externo));
     }
 
@@ -51,6 +56,7 @@ public class ExternoService {
             throw new BusinessException("Ya existe un usuario con el email: " + request.email());
         }
         mapper.update(request, externo);
+        externo.setPassword(passwordEncoder.encode(request.password()));
         return mapper.toResponse(externoRepository.save(externo));
     }
 

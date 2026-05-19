@@ -1,13 +1,9 @@
 package com.academconnect.controller;
 
-import com.academconnect.dto.EstudianteRequest;
-import com.academconnect.dto.EstudianteResponse;
-import com.academconnect.dto.SolicitudVinculacionResponse;
-import com.academconnect.service.EstudianteService;
-import com.academconnect.service.SolicitudVinculacionService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -18,7 +14,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import com.academconnect.dto.EstudianteRequest;
+import com.academconnect.dto.EstudianteResponse;
+import com.academconnect.dto.SolicitudVinculacionResponse;
+import com.academconnect.service.EstudianteService;
+import com.academconnect.service.SolicitudVinculacionService;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/estudiantes")
@@ -29,33 +32,39 @@ public class EstudianteController {
     private final SolicitudVinculacionService solicitudService;
 
     @GetMapping
+    @PreAuthorize("isAuthenticated()")
     public List<EstudianteResponse> listar() {
         return service.listar();
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     public EstudianteResponse buscarPorId(@PathVariable Long id) {
         return service.buscarPorId(id);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public EstudianteResponse crear(@Valid @RequestBody EstudianteRequest request) {
         return service.crear(request);
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public EstudianteResponse actualizar(@PathVariable Long id, @Valid @RequestBody EstudianteRequest request) {
         return service.actualizar(id, request);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
     public void desactivar(@PathVariable Long id) {
         service.desactivar(id);
     }
 
     @GetMapping("/{id}/solicitudes")
+    @PreAuthorize("isAuthenticated()")
     public List<SolicitudVinculacionResponse> listarSolicitudes(@PathVariable Long id) {
         return solicitudService.listarPorEstudiante(id);
     }

@@ -1,5 +1,11 @@
 package com.academconnect.service;
 
+import java.util.List;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.academconnect.dto.ProfesorRequest;
 import com.academconnect.dto.ProfesorResponse;
 import com.academconnect.exception.BusinessException;
@@ -7,11 +13,8 @@ import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.mapper.ProfesorMapper;
 import com.academconnect.repository.ProfesorRepository;
 import com.academconnect.repository.UsuarioRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @Transactional(readOnly = true)
@@ -21,6 +24,7 @@ public class ProfesorService {
     private final ProfesorRepository profesorRepository;
     private final UsuarioRepository usuarioRepository;
     private final ProfesorMapper mapper;
+    private final PasswordEncoder passwordEncoder;
 
     public List<ProfesorResponse> listar() {
         return profesorRepository.findAll().stream()
@@ -40,6 +44,7 @@ public class ProfesorService {
             throw new BusinessException("Ya existe un usuario con el email: " + request.email());
         }
         var profesor = mapper.toEntity(request);
+        profesor.setPassword(passwordEncoder.encode(request.password()));
         return mapper.toResponse(profesorRepository.save(profesor));
     }
 
@@ -51,6 +56,7 @@ public class ProfesorService {
             throw new BusinessException("Ya existe un usuario con el email: " + request.email());
         }
         mapper.update(request, profesor);
+        profesor.setPassword(passwordEncoder.encode(request.password()));
         return mapper.toResponse(profesorRepository.save(profesor));
     }
 
