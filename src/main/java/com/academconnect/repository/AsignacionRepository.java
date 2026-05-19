@@ -3,9 +3,11 @@ package com.academconnect.repository;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import com.academconnect.domain.Asignacion;
 import com.academconnect.domain.EstadoAsignacion;
+import com.academconnect.dto.CargaEvaluadorDto;
 
 public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
 
@@ -14,4 +16,10 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
     List<Asignacion> findByEvaluadorIdAndEstado(Long evaluadorId, EstadoAsignacion estado);
 
     long countByEvaluadorIdAndEstado(Long evaluadorId, EstadoAsignacion estado);
+
+    @Query("SELECT new com.academconnect.dto.CargaEvaluadorDto(a.evaluador.id, a.evaluador.nombre, COUNT(a)) " +
+           "FROM Asignacion a WHERE a.estado = com.academconnect.domain.EstadoAsignacion.ACTIVA " +
+           "GROUP BY a.evaluador.id, a.evaluador.nombre " +
+           "ORDER BY COUNT(a) DESC")
+    List<CargaEvaluadorDto> cargaActivaPorEvaluador();
 }
