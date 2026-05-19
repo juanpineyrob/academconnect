@@ -8,6 +8,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.academconnect.domain.Asignacion;
 import com.academconnect.domain.EstadoAsignacion;
+import com.academconnect.domain.EstadoTrabajo;
 import com.academconnect.dto.AsignacionRequest;
 import com.academconnect.dto.AsignacionResponse;
 import com.academconnect.exception.BusinessException;
@@ -79,6 +80,11 @@ public class AsignacionService {
         asignacion.setAsignadaEn(Instant.now());
         asignacion.setVencimientoEn(request.vencimientoEn());
         asignacion.setEstado(EstadoAsignacion.ACTIVA);
+
+        if (trabajo.getEstado() == EstadoTrabajo.EN_DESARROLLO) {
+            trabajo.setEstado(EstadoTrabajo.EN_EVALUACION);
+            trabajoRepository.save(trabajo);
+        }
 
         return mapper.toResponse(asignacionRepository.save(asignacion));
     }

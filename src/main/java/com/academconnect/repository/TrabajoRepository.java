@@ -20,4 +20,8 @@ public interface TrabajoRepository extends JpaRepository<Trabajo, Long> {
 
     @Query("SELECT new com.academconnect.dto.TrabajosPorEstadoDto(t.estado, COUNT(t)) FROM Trabajo t GROUP BY t.estado")
     List<TrabajosPorEstadoDto> contarPorEstado();
+
+    @Query(value = "SELECT * FROM trabajo WHERE search_vector @@ plainto_tsquery('spanish', :q)",
+           nativeQuery = true)
+    List<Trabajo> buscarPorTexto(@org.springframework.data.repository.query.Param("q") String q);
 }

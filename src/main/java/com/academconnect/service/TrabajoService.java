@@ -4,6 +4,7 @@ import com.academconnect.domain.AreaTematica;
 import com.academconnect.domain.EstadoTrabajo;
 import com.academconnect.dto.TrabajoRequest;
 import com.academconnect.dto.TrabajoResponse;
+import com.academconnect.exception.BusinessException;
 import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.mapper.TrabajoMapper;
 import com.academconnect.repository.AreaTematicaRepository;
@@ -62,6 +63,22 @@ public class TrabajoService {
         return mapper.toResponse(trabajoRepository.save(trabajo));
     }
 
+    public List<TrabajoResponse> buscarPorTexto(String q) {
+        return trabajoRepository.buscarPorTexto(q).stream()
+                .map(mapper::toResponse)
+                .toList();
+    }
+
+    @Transactional
+    public TrabajoResponse aprobar(Long id) {
+        return cambiarEstado(id, EstadoTrabajo.EN_EVALUACION, EstadoTrabajo.APROBADO);
+    }
+
+    @Transactional
+    public TrabajoResponse rechazar(Long id) {
+        return cambiarEstado(id, EstadoTrabajo.EN_EVALUACION, EstadoTrabajo.RECHAZADO);
+    }
+
     @Transactional
     public TrabajoResponse actualizar(Long id, TrabajoRequest request) {
         var trabajo = trabajoRepository.findById(id)
@@ -78,6 +95,17 @@ public class TrabajoService {
                 : new HashSet<>();
         trabajo.setAreas(areas);
 
+        return mapper.toResponse(trabajoRepository.save(trabajo));
+    }
+
+    private TrabajoResponse cambiarEstado(Long id, EstadoTrabajo estadoRequerido, EstadoTrabajo nuevoEstado) {
+        var trabajo = trabajoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Trabajo", id));
+        if (trabajo.getEstado() != estadoRequerido) {
+            throw new BusinessException(
+                    "El trabajo debe estar en estado %s para pasar a %s".formatted(estadoRequerido, nuevoEstado));
+        }
+        trabajo.setEstado(nuevoEstado);
         return mapper.toResponse(trabajoRepository.save(trabajo));
     }
 }

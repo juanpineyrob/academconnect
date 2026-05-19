@@ -34,10 +34,11 @@ public class TrabajoController {
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
-    public List<TrabajoResponse> listar(@RequestParam(required = false) EstadoTrabajo estado) {
-        if (estado != null) {
-            return service.listarPorEstado(estado);
-        }
+    public List<TrabajoResponse> listar(
+            @RequestParam(required = false) EstadoTrabajo estado,
+            @RequestParam(required = false) String q) {
+        if (q != null && !q.isBlank()) return service.buscarPorTexto(q);
+        if (estado != null) return service.listarPorEstado(estado);
         return service.listar();
     }
 
@@ -58,6 +59,18 @@ public class TrabajoController {
     @PreAuthorize("hasRole('PROFESOR')")
     public TrabajoResponse actualizar(@PathVariable Long id, @Valid @RequestBody TrabajoRequest request) {
         return service.actualizar(id, request);
+    }
+
+    @PostMapping("/{id}/aprobar")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public TrabajoResponse aprobar(@PathVariable Long id) {
+        return service.aprobar(id);
+    }
+
+    @PostMapping("/{id}/rechazar")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public TrabajoResponse rechazar(@PathVariable Long id) {
+        return service.rechazar(id);
     }
 
     @GetMapping("/{id}/solicitudes")
