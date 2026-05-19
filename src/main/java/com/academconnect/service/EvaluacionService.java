@@ -22,6 +22,7 @@ import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.mapper.EvaluacionMapper;
 import com.academconnect.repository.AsignacionRepository;
 import com.academconnect.repository.EvaluacionRepository;
+import com.academconnect.repository.TrabajoRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -36,6 +37,7 @@ public class EvaluacionService {
 
     private final EvaluacionRepository evaluacionRepository;
     private final AsignacionRepository asignacionRepository;
+    private final TrabajoRepository trabajoRepository;
     private final EvaluacionMapper mapper;
 
     public EvaluacionResponse buscarPorAsignacion(Long asignacionId) {
@@ -48,6 +50,20 @@ public class EvaluacionService {
         return evaluacionRepository.findById(id)
                 .map(mapper::toResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("Evaluacion", id));
+    }
+
+    public List<EvaluacionResponse> listarNotasTrabajo(Long trabajoId, String estudianteEmail) {
+        var trabajo = trabajoRepository.findById(trabajoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trabajo", trabajoId));
+        var estudiante = trabajo.getEstudiante();
+        if (estudiante == null || !estudiante.getEmail().equals(estudianteEmail)) {
+            throw new BusinessException("El trabajo no pertenece al estudiante autenticado");
+        }
+        return evaluacionRepository
+                .findByAsignacionTrabajoIdAndEstado(trabajoId, EstadoEvaluacion.COMPLETADA)
+                .stream()
+                .map(mapper::toResponse)
+                .toList();
     }
 
     @Transactional

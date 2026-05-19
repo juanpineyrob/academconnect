@@ -83,6 +83,15 @@ public class AsignacionService {
         return mapper.toResponse(asignacionRepository.save(asignacion));
     }
 
+    public List<AsignacionResponse> listarMisAsignaciones(String email) {
+        var evaluador = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario con email", email));
+        return asignacionRepository.findByEvaluadorIdAndEstado(evaluador.getId(), EstadoAsignacion.ACTIVA)
+                .stream()
+                .map(mapper::toResponse)
+                .toList();
+    }
+
     @Transactional
     public AsignacionResponse cancelar(Long id) {
         var asignacion = asignacionRepository.findById(id)
