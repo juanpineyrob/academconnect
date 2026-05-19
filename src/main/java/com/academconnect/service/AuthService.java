@@ -23,6 +23,7 @@ import com.academconnect.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 
 @Service
+@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class AuthService {
 
