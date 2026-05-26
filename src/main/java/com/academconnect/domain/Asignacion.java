@@ -51,4 +51,9 @@ public class Asignacion extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private EstadoAsignacion estado;
+
+    /** Sesión de evaluación (sincrónica) a la que pertenece esta asignación. Null para asincrónicas. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sesion_id")
+    private SesionEvaluacion sesion;
 }

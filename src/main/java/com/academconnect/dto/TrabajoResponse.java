@@ -1,9 +1,12 @@
 package com.academconnect.dto;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+import java.util.Set;
+
 import com.academconnect.domain.EstadoTrabajo;
 import com.academconnect.domain.TipoTrabajo;
-import java.time.Instant;
-import java.util.Set;
 
 public record TrabajoResponse(
         Long id,
@@ -16,6 +19,10 @@ public record TrabajoResponse(
         Long estudianteId,
         String estudianteNombre,
         Set<AreaTematicaResponse> areas,
+        List<String> keywords,
+        List<String> coorientadoresNombres,
+        BigDecimal puntajeAgregado,
+        Instant evaluadoEn,
         Instant createdAt,
         Instant updatedAt) {
 }

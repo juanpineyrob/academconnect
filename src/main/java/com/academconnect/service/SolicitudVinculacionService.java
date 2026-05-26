@@ -3,9 +3,12 @@ package com.academconnect.service;
 import com.academconnect.domain.EstadoSolicitud;
 import com.academconnect.domain.EstadoTrabajo;
 import com.academconnect.domain.SolicitudVinculacion;
+import com.academconnect.domain.TipoActividad;
+import com.academconnect.domain.VisibilidadActividad;
 import com.academconnect.dto.RespuestaSolicitudRequest;
 import com.academconnect.dto.SolicitudVinculacionRequest;
 import com.academconnect.dto.SolicitudVinculacionResponse;
+import com.academconnect.event.ActividadEvent;
 import com.academconnect.exception.BusinessException;
 import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.mapper.SolicitudVinculacionMapper;
@@ -13,11 +16,13 @@ import com.academconnect.repository.EstudianteRepository;
 import com.academconnect.repository.SolicitudVinculacionRepository;
 import com.academconnect.repository.TrabajoRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Transactional(readOnly = true)
@@ -28,6 +33,7 @@ public class SolicitudVinculacionService {
     private final TrabajoRepository trabajoRepository;
     private final EstudianteRepository estudianteRepository;
     private final SolicitudVinculacionMapper mapper;
+    private final ApplicationEventPublisher events;
 
     public SolicitudVinculacionResponse buscarPorId(Long id) {
         return solicitudRepository.findById(id)
@@ -73,8 +79,18 @@ public class SolicitudVinculacionService {
         solicitud.setEstudiante(estudiante);
         solicitud.setEstado(EstadoSolicitud.PENDIENTE);
         solicitud.setMotivo(request.motivo());
+        var saved = solicitudRepository.save(solicitud);
 
-        return mapper.toResponse(solicitudRepository.save(solicitud));
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.SOLICITUD_VINCULACION_ENVIADA,
+                estudiante.getId(),
+                "SOLICITUD_VINCULACION", saved.getId(),
+                Map.of("trabajoId", trabajo.getId(), "trabajoTitulo", trabajo.getTitulo()),
+                VisibilidadActividad.PARTICIPANTES,
+                trabajo.getOrientador() != null
+                        ? List.of(estudiante.getId(), trabajo.getOrientador().getId())
+                        : List.of(estudiante.getId())));
+        return mapper.toResponse(saved);
     }
 
     @Transactional
@@ -111,7 +127,16 @@ public class SolicitudVinculacionService {
         }
         solicitudRepository.saveAll(otrasPendientes);
 
-        return mapper.toResponse(solicitudRepository.save(solicitud));
+        var saved = solicitudRepository.save(solicitud);
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.SOLICITUD_VINCULACION_APROBADA,
+                trabajo.getOrientador() != null ? trabajo.getOrientador().getId() : null,
+                "SOLICITUD_VINCULACION", saved.getId(),
+                Map.of("trabajoId", trabajo.getId(), "trabajoTitulo", trabajo.getTitulo()),
+                VisibilidadActividad.PARTICIPANTES,
+                List.of(solicitud.getEstudiante().getId(),
+                        trabajo.getOrientador() != null ? trabajo.getOrientador().getId() : 0L)));
+        return mapper.toResponse(saved);
     }
 
     @Transactional
@@ -127,6 +152,16 @@ public class SolicitudVinculacionService {
         solicitud.setRespuesta(request != null ? request.respuesta() : null);
         solicitud.setResueltaEn(Instant.now());
 
-        return mapper.toResponse(solicitudRepository.save(solicitud));
+        var trabajo = solicitud.getTrabajo();
+        var saved = solicitudRepository.save(solicitud);
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.SOLICITUD_VINCULACION_RECHAZADA,
+                trabajo.getOrientador() != null ? trabajo.getOrientador().getId() : null,
+                "SOLICITUD_VINCULACION", saved.getId(),
+                Map.of("trabajoId", trabajo.getId(), "trabajoTitulo", trabajo.getTitulo()),
+                VisibilidadActividad.PARTICIPANTES,
+                List.of(solicitud.getEstudiante().getId(),
+                        trabajo.getOrientador() != null ? trabajo.getOrientador().getId() : 0L)));
+        return mapper.toResponse(saved);
     }
 }

@@ -1,7 +1,10 @@
 package com.academconnect.dto;
 
+import java.math.BigDecimal;
+
 import com.academconnect.domain.TemplateScope;
 import com.academconnect.domain.TipoTrabajo;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -12,5 +15,6 @@ public record TemplateEvaluacionRequest(
         @NotNull TemplateScope scope,
         TipoTrabajo tipoTrabajoAplicable,
         @NotBlank String criterios,
-        boolean activo) {
+        boolean activo,
+        @NotNull @DecimalMin("0.0") BigDecimal umbralAprobacion) {
 }

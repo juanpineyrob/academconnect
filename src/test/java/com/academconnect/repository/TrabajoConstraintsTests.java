@@ -1,8 +1,8 @@
 package com.academconnect.repository;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import java.util.List;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -14,14 +14,19 @@ import com.academconnect.domain.Profesor;
 import com.academconnect.domain.TipoTrabajo;
 import com.academconnect.domain.Trabajo;
 
-class TrabajoConstraintsTest extends AbstractJpaTest {
+public class TrabajoConstraintsTests extends AbstractJpaTest {
 
-    @Autowired private EstudianteRepository estudianteRepository;
-    @Autowired private ProfesorRepository profesorRepository;
-    @Autowired private TrabajoRepository trabajoRepository;
+    @Autowired
+    private EstudianteRepository estudianteRepository;
+
+    @Autowired
+    private ProfesorRepository profesorRepository;
+
+    @Autowired
+    private TrabajoRepository trabajoRepository;
 
     @Test
-    void no_permite_dos_trabajos_activos_del_mismo_tipo_por_estudiante() {
+    void saveShouldThrowDataIntegrityViolationExceptionWhenTwoActiveTrabajosOfSameTipoForSameEstudiante() {
         Estudiante est = newEstudiante("a@example.com");
         Profesor prof = newProfesor("p@example.com");
 
@@ -30,30 +35,30 @@ class TrabajoConstraintsTest extends AbstractJpaTest {
 
         Trabajo t2 = newTrabajo(prof, est, TipoTrabajo.TCC, EstadoTrabajo.EN_DESARROLLO);
 
-        assertThatThrownBy(() -> trabajoRepository.saveAndFlush(t2))
-                .isInstanceOf(DataIntegrityViolationException.class);
+        Assertions.assertThrows(DataIntegrityViolationException.class,
+                () -> trabajoRepository.saveAndFlush(t2));
     }
 
     @Test
-    void permite_trabajo_activo_y_uno_finalizado_del_mismo_tipo() {
+    void saveShouldAllowActiveTrabajoWhenPreviousIsFinalizadoForSameTipo() {
         Estudiante est = newEstudiante("b@example.com");
         Profesor prof = newProfesor("q@example.com");
 
         trabajoRepository.saveAndFlush(newTrabajo(prof, est, TipoTrabajo.TCC, EstadoTrabajo.RECHAZADO));
         trabajoRepository.saveAndFlush(newTrabajo(prof, est, TipoTrabajo.TCC, EstadoTrabajo.EN_DESARROLLO));
 
-        assertThat(trabajoRepository.findAll()).hasSize(2);
+        Assertions.assertEquals(2, trabajoRepository.findAll().size());
     }
 
     @Test
-    void permite_trabajos_activos_de_tipos_distintos_simultaneamente() {
+    void saveShouldAllowSimultaneousActiveTrabajosWhenTiposAreDifferent() {
         Estudiante est = newEstudiante("c@example.com");
         Profesor prof = newProfesor("r@example.com");
 
         trabajoRepository.saveAndFlush(newTrabajo(prof, est, TipoTrabajo.TCC, EstadoTrabajo.EN_DESARROLLO));
         trabajoRepository.saveAndFlush(newTrabajo(prof, est, TipoTrabajo.PAPER, EstadoTrabajo.EN_DESARROLLO));
 
-        assertThat(trabajoRepository.findAll()).hasSize(2);
+        Assertions.assertEquals(2, trabajoRepository.findAll().size());
     }
 
     private Estudiante newEstudiante(String email) {
@@ -79,6 +84,7 @@ class TrabajoConstraintsTest extends AbstractJpaTest {
         t.setEstado(estado);
         t.setOrientador(prof);
         t.setEstudiante(est);
+        t.setKeywords(List.of("kw1", "kw2", "kw3"));
         return t;
     }
 }

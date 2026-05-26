@@ -8,6 +8,7 @@ public record PerfilUpdateRequest(
         Integer edad,
         @Size(max = 200) String ubicacion,
         String biografia,
+        @Size(max = 500) String fotoUrl,
         @Size(min = 8, max = 255) String password,
         @Size(max = 200) String titulacion,
         @Size(max = 200) String cargo,

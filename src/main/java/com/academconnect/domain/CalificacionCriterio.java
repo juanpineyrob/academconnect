@@ -32,4 +32,8 @@ public class CalificacionCriterio extends BaseEntity {
 
     @Column(columnDefinition = "TEXT")
     private String comentario;
+
+    /** Si true, el comentario solo lo ven evaluadores, orientador y admins; el estudiante queda fuera. */
+    @Column(name = "comentario_privado", nullable = false)
+    private boolean comentarioPrivado = true;
 }

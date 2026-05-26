@@ -1,7 +1,14 @@
 package com.academconnect.domain;
 
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
+
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -60,4 +67,17 @@ public class Trabajo extends BaseEntity {
 
     @OneToMany(mappedBy = "trabajo", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<SolicitudVinculacion> solicitudes = new HashSet<>();
+
+    /** Keywords libres declaradas por el orientador al crear el trabajo (3 a 8). */
+    @JdbcTypeCode(SqlTypes.ARRAY)
+    @Column(name = "keywords", nullable = false, columnDefinition = "text[]")
+    private List<String> keywords = new ArrayList<>();
+
+    /** Promedio de calificaciones finales sobre la última versión evaluada — fijado por EvaluacionAgregadora. */
+    @Column(name = "puntaje_agregado", precision = 6, scale = 2)
+    private BigDecimal puntajeAgregado;
+
+    /** Marca temporal del cierre de la evaluación agregada. */
+    @Column(name = "evaluado_en")
+    private Instant evaluadoEn;
 }

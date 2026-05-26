@@ -1,8 +1,6 @@
 package com.academconnect.repository;
 
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -12,16 +10,24 @@ import com.academconnect.domain.Estudiante;
 import com.academconnect.domain.Externo;
 import com.academconnect.domain.Profesor;
 import com.academconnect.domain.Rol;
+import com.academconnect.domain.Usuario;
 
-class UsuarioRepositoryTest extends AbstractJpaTest {
+public class UsuarioRepositoryTests extends AbstractJpaTest {
 
-    @Autowired private UsuarioRepository usuarioRepository;
-    @Autowired private EstudianteRepository estudianteRepository;
-    @Autowired private ProfesorRepository profesorRepository;
-    @Autowired private ExternoRepository externoRepository;
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private EstudianteRepository estudianteRepository;
+
+    @Autowired
+    private ProfesorRepository profesorRepository;
+
+    @Autowired
+    private ExternoRepository externoRepository;
 
     @Test
-    void persiste_subclases_via_herencia_JOINED() {
+    void saveShouldPersistJoinedInheritanceWhenSubclassesAreUsed() {
         Estudiante e = new Estudiante();
         e.setEmail("est@example.com");
         e.setPassword("x");
@@ -43,16 +49,14 @@ class UsuarioRepositoryTest extends AbstractJpaTest {
         x.setTitulo("PhD");
         externoRepository.save(x);
 
-        assertThat(usuarioRepository.findAll()).hasSize(3);
-        assertThat(usuarioRepository.findByEmail("prof@example.com"))
-                .get()
-                .isInstanceOf(Profesor.class)
-                .extracting(u -> u.getRol())
-                .isEqualTo(Rol.PROFESOR);
+        Assertions.assertEquals(3, usuarioRepository.findAll().size());
+        Usuario loaded = usuarioRepository.findByEmail("prof@example.com").orElseThrow();
+        Assertions.assertInstanceOf(Profesor.class, loaded);
+        Assertions.assertEquals(Rol.PROFESOR, loaded.getRol());
     }
 
     @Test
-    void email_unico_se_respeta() {
+    void saveAndFlushShouldThrowDataIntegrityViolationExceptionWhenEmailIsDuplicate() {
         Estudiante e1 = new Estudiante();
         e1.setEmail("dup@example.com");
         e1.setPassword("x");
@@ -64,7 +68,7 @@ class UsuarioRepositoryTest extends AbstractJpaTest {
         e2.setPassword("x");
         e2.setNombre("B");
 
-        assertThatThrownBy(() -> profesorRepository.saveAndFlush(e2))
-                .isInstanceOf(DataIntegrityViolationException.class);
+        Assertions.assertThrows(DataIntegrityViolationException.class,
+                () -> profesorRepository.saveAndFlush(e2));
     }
 }

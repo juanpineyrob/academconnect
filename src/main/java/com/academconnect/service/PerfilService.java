@@ -8,6 +8,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.academconnect.domain.EstadoTrabajo;
+import com.academconnect.domain.Estudiante;
 import com.academconnect.domain.Externo;
 import com.academconnect.domain.Profesor;
 import com.academconnect.domain.Usuario;
@@ -18,6 +20,7 @@ import com.academconnect.dto.UsuarioAreaTematicaResponse;
 import com.academconnect.dto.UsuarioAreasRequest;
 import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.repository.AreaTematicaRepository;
+import com.academconnect.repository.TrabajoRepository;
 import com.academconnect.repository.UsuarioRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,7 @@ public class PerfilService {
 
     private final UsuarioRepository usuarioRepository;
     private final AreaTematicaRepository areaTematicaRepository;
+    private final TrabajoRepository trabajoRepository;
     private final PasswordEncoder passwordEncoder;
 
     public PerfilResponse obtenerPerfil(String email) {
@@ -46,6 +50,7 @@ public class PerfilService {
         usuario.setEdad(request.edad());
         usuario.setUbicacion(request.ubicacion());
         usuario.setBiografia(request.biografia());
+        usuario.setFotoUrl(request.fotoUrl());
 
         if (request.password() != null && !request.password().isBlank()) {
             usuario.setPassword(passwordEncoder.encode(request.password()));
@@ -80,6 +85,14 @@ public class PerfilService {
     }
 
     private PerfilResponse toPerfilResponse(Usuario u) {
+        long publicados;
+        if (u instanceof Estudiante) {
+            publicados = trabajoRepository.countByEstudianteIdAndEstado(u.getId(), EstadoTrabajo.APROBADO);
+        } else if (u instanceof Profesor) {
+            publicados = trabajoRepository.countByOrientadorIdAndEstado(u.getId(), EstadoTrabajo.APROBADO);
+        } else {
+            publicados = 0L;
+        }
         return new PerfilResponse(
                 u.getId(),
                 u.getEmail(),
@@ -89,11 +102,13 @@ public class PerfilService {
                 u.getEdad(),
                 u.getUbicacion(),
                 u.getBiografia(),
+                u.getFotoUrl(),
                 u instanceof Profesor p ? p.getTitulacion() : null,
                 u instanceof Profesor p2 ? p2.getCargo() : null,
                 u instanceof Externo e ? e.getInstitucion() : null,
                 u instanceof Externo e2 ? e2.getTitulo() : null,
                 toAreaResponseSet(u.getAreas()),
+                publicados,
                 u.getCreatedAt(),
                 u.getUpdatedAt());
     }

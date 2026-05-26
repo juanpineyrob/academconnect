@@ -2,20 +2,32 @@ package com.academconnect.service;
 
 import com.academconnect.domain.AreaTematica;
 import com.academconnect.domain.EstadoTrabajo;
+import com.academconnect.domain.TipoActividad;
+import com.academconnect.domain.TipoTrabajo;
+import com.academconnect.domain.Trabajo;
+import com.academconnect.domain.VisibilidadActividad;
 import com.academconnect.dto.TrabajoRequest;
 import com.academconnect.dto.TrabajoResponse;
+import com.academconnect.event.ActividadEvent;
 import com.academconnect.exception.BusinessException;
 import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.mapper.TrabajoMapper;
 import com.academconnect.repository.AreaTematicaRepository;
 import com.academconnect.repository.ProfesorRepository;
 import com.academconnect.repository.TrabajoRepository;
+import com.academconnect.repository.UsuarioRepository;
+import com.academconnect.repository.spec.TrabajoSpecs;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Service
@@ -25,8 +37,10 @@ public class TrabajoService {
 
     private final TrabajoRepository trabajoRepository;
     private final ProfesorRepository profesorRepository;
+    private final UsuarioRepository usuarioRepository;
     private final AreaTematicaRepository areaTematicaRepository;
     private final TrabajoMapper mapper;
+    private final ApplicationEventPublisher events;
 
     public List<TrabajoResponse> listar() {
         return trabajoRepository.findAll().stream()
@@ -54,13 +68,29 @@ public class TrabajoService {
         var trabajo = mapper.toEntity(request);
         trabajo.setOrientador(orientador);
         trabajo.setEstado(EstadoTrabajo.BORRADOR);
+        trabajo.setKeywords(normalizarKeywords(request.keywords()));
 
         if (request.areaIds() != null && !request.areaIds().isEmpty()) {
             Set<AreaTematica> areas = new HashSet<>(areaTematicaRepository.findAllById(request.areaIds()));
             trabajo.setAreas(areas);
         }
 
-        return mapper.toResponse(trabajoRepository.save(trabajo));
+        Trabajo saved = trabajoRepository.save(trabajo);
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.TRABAJO_CREADO,
+                orientador.getId(),
+                "TRABAJO", saved.getId(),
+                Map.of("titulo", saved.getTitulo(), "tipo", saved.getTipo().name()),
+                VisibilidadActividad.PARTICIPANTES,
+                participantesDe(saved)));
+        return mapper.toResponse(saved);
+    }
+
+    private static List<Long> participantesDe(Trabajo t) {
+        List<Long> ids = new java.util.ArrayList<>();
+        if (t.getOrientador() != null) ids.add(t.getOrientador().getId());
+        if (t.getEstudiante() != null) ids.add(t.getEstudiante().getId());
+        return ids;
     }
 
     public List<TrabajoResponse> buscarPorTexto(String q) {
@@ -69,14 +99,80 @@ public class TrabajoService {
                 .toList();
     }
 
+    /**
+     * G12+G13 — búsqueda multi-parámetro combinable. Cuando {@code soloPublicos=true}, fuerza
+     * {@code estado=APROBADO} e ignora filtros que expongan datos privados (orientador, estudiante).
+     * El controlador define {@code soloPublicos} según haya o no autenticación.
+     */
+    public Page<TrabajoResponse> buscar(
+            String q,
+            List<Long> areaIds,
+            List<Integer> anios,
+            TipoTrabajo tipo,
+            EstadoTrabajo estado,
+            Long orientadorId,
+            Long estudianteId,
+            boolean soloPublicos,
+            Pageable pageable) {
+
+        // Specification que matchea todo; los predicados se acumulan con and(...).
+        Specification<Trabajo> spec = (root, cq, cb) -> cb.conjunction();
+
+        if (soloPublicos) {
+            spec = spec.and(TrabajoSpecs.estadoIgual(EstadoTrabajo.APROBADO));
+        } else {
+            spec = combinar(spec, TrabajoSpecs.estadoIgual(estado));
+        }
+
+        if (q != null && !q.isBlank()) {
+            List<Long> ids = trabajoRepository.buscarIdsPorTexto(q);
+            spec = spec.and(TrabajoSpecs.idEnConjunto(ids));
+        }
+
+        spec = combinar(spec, TrabajoSpecs.tieneAlgunArea(areaIds));
+        spec = combinar(spec, TrabajoSpecs.creadoEnAnio(anios));
+        spec = combinar(spec, TrabajoSpecs.tipoIgual(tipo));
+        spec = combinar(spec, TrabajoSpecs.estudianteIgual(estudianteId));
+        if (!soloPublicos) {
+            spec = combinar(spec, TrabajoSpecs.orientadorIgual(orientadorId));
+        }
+
+        return trabajoRepository.findAll(spec, pageable).map(mapper::toResponse);
+    }
+
+    private static Specification<Trabajo> combinar(Specification<Trabajo> base, Specification<Trabajo> extra) {
+        return extra == null ? base : base.and(extra);
+    }
+
+    public List<TrabajoResponse> listarMisTrabajos(String estudianteEmail) {
+        var usuario = usuarioRepository.findByEmail(estudianteEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario con email", estudianteEmail));
+        return trabajoRepository.findByEstudianteId(usuario.getId()).stream()
+                .map(mapper::toResponse)
+                .toList();
+    }
+
     @Transactional
     public TrabajoResponse aprobar(Long id) {
-        return cambiarEstado(id, EstadoTrabajo.EN_EVALUACION, EstadoTrabajo.APROBADO);
+        var r = cambiarEstado(id, EstadoTrabajo.EN_EVALUACION, EstadoTrabajo.APROBADO);
+        publicarTransicion(id, TipoActividad.TRABAJO_APROBADO);
+        return r;
     }
 
     @Transactional
     public TrabajoResponse rechazar(Long id) {
-        return cambiarEstado(id, EstadoTrabajo.EN_EVALUACION, EstadoTrabajo.RECHAZADO);
+        var r = cambiarEstado(id, EstadoTrabajo.EN_EVALUACION, EstadoTrabajo.RECHAZADO);
+        publicarTransicion(id, TipoActividad.TRABAJO_RECHAZADO);
+        return r;
+    }
+
+    private void publicarTransicion(Long trabajoId, TipoActividad tipo) {
+        trabajoRepository.findById(trabajoId).ifPresent(t ->
+                events.publishEvent(ActividadEvent.of(
+                        tipo, null, "TRABAJO", t.getId(),
+                        Map.of("titulo", t.getTitulo()),
+                        VisibilidadActividad.PUBLICA,
+                        participantesDe(t))));
     }
 
     @Transactional
@@ -89,6 +185,7 @@ public class TrabajoService {
 
         mapper.update(request, trabajo);
         trabajo.setOrientador(orientador);
+        trabajo.setKeywords(normalizarKeywords(request.keywords()));
 
         Set<AreaTematica> areas = (request.areaIds() != null && !request.areaIds().isEmpty())
                 ? new HashSet<>(areaTematicaRepository.findAllById(request.areaIds()))
@@ -96,6 +193,15 @@ public class TrabajoService {
         trabajo.setAreas(areas);
 
         return mapper.toResponse(trabajoRepository.save(trabajo));
+    }
+
+    /** Lowercase + trim + dedupe preservando orden. La cardinalidad la garantiza el @Size del DTO + CHECK SQL. */
+    private static java.util.List<String> normalizarKeywords(java.util.List<String> keywords) {
+        return keywords.stream()
+                .map(String::trim)
+                .map(String::toLowerCase)
+                .distinct()
+                .toList();
     }
 
     private TrabajoResponse cambiarEstado(Long id, EstadoTrabajo estadoRequerido, EstadoTrabajo nuevoEstado) {

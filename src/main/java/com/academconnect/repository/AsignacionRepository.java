@@ -15,7 +15,12 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
 
     List<Asignacion> findByEvaluadorIdAndEstado(Long evaluadorId, EstadoAsignacion estado);
 
+    List<Asignacion> findByEvaluadorId(Long evaluadorId);
+
     long countByEvaluadorIdAndEstado(Long evaluadorId, EstadoAsignacion estado);
+
+    long countByTrabajoIdAndVersionamientoIdAndEstado(
+            Long trabajoId, Long versionamientoId, EstadoAsignacion estado);
 
     @Query("SELECT new com.academconnect.dto.CargaEvaluadorDto(a.evaluador.id, a.evaluador.nombre, COUNT(a)) " +
            "FROM Asignacion a WHERE a.estado = com.academconnect.domain.EstadoAsignacion.ACTIVA " +

@@ -6,5 +6,6 @@ public record CalificacionCriterioResponse(
         Long id,
         String criterioCodigo,
         BigDecimal puntaje,
-        String comentario) {
+        String comentario,
+        boolean comentarioPrivado) {
 }

@@ -43,6 +43,13 @@ public abstract class Usuario extends BaseEntity {
     @Column(columnDefinition = "TEXT")
     private String biografia;
 
+    @Column(name = "foto_url", length = 500)
+    private String fotoUrl;
+
+    /** Tope de asignaciones ACTIVAS simultáneas. Editable por admin. */
+    @Column(name = "tope_asignaciones", nullable = false)
+    private int topeAsignaciones = 5;
+
     @OneToMany(mappedBy = "usuario", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<UsuarioAreaTematica> areas = new HashSet<>();
 

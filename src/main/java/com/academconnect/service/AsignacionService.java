@@ -20,13 +20,25 @@ import com.academconnect.repository.TemplateEvaluacionRepository;
 import com.academconnect.repository.UsuarioRepository;
 import com.academconnect.repository.VersionamientoRepository;
 import com.academconnect.repository.TrabajoRepository;
+import com.academconnect.domain.TipoActividad;
+import com.academconnect.domain.VisibilidadActividad;
+import com.academconnect.event.ActividadEvent;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
+
+import java.util.ArrayList;
+import java.util.Map;
 
 @Service
 @Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class AsignacionService {
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final AsignacionRepository asignacionRepository;
     private final TrabajoRepository trabajoRepository;
@@ -35,6 +47,7 @@ public class AsignacionService {
     private final TemplateEvaluacionRepository templateRepository;
     private final ConflictoInteresRepository conflictoRepository;
     private final AsignacionMapper mapper;
+    private final ApplicationEventPublisher events;
 
     public AsignacionResponse buscarPorId(Long id) {
         return asignacionRepository.findById(id)
@@ -76,7 +89,7 @@ public class AsignacionService {
         asignacion.setTrabajo(trabajo);
         asignacion.setVersionamiento(version);
         asignacion.setEvaluador(evaluador);
-        asignacion.setTemplateSnapshot(template.getCriterios());
+        asignacion.setTemplateSnapshot(construirSnapshot(template.getCriterios(), template.getUmbralAprobacion()));
         asignacion.setAsignadaEn(Instant.now());
         asignacion.setVencimientoEn(request.vencimientoEn());
         asignacion.setEstado(EstadoAsignacion.ACTIVA);
@@ -86,16 +99,62 @@ public class AsignacionService {
             trabajoRepository.save(trabajo);
         }
 
-        return mapper.toResponse(asignacionRepository.save(asignacion));
+        var saved = asignacionRepository.save(asignacion);
+
+        var participantes = new ArrayList<Long>();
+        if (trabajo.getOrientador() != null) participantes.add(trabajo.getOrientador().getId());
+        if (trabajo.getEstudiante() != null) participantes.add(trabajo.getEstudiante().getId());
+        participantes.add(evaluador.getId());
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.ASIGNACION_CREADA,
+                trabajo.getOrientador() != null ? trabajo.getOrientador().getId() : null,
+                "ASIGNACION", saved.getId(),
+                Map.of("trabajoId", trabajo.getId(),
+                       "trabajoTitulo", trabajo.getTitulo(),
+                       "evaluadorId", evaluador.getId(),
+                       "evaluadorNombre", evaluador.getNombre()),
+                VisibilidadActividad.PARTICIPANTES,
+                participantes));
+
+        return mapper.toResponse(saved);
     }
 
     public List<AsignacionResponse> listarMisAsignaciones(String email) {
+        return listarMisAsignaciones(email, EstadoAsignacion.ACTIVA);
+    }
+
+    /** G09 — filtra por estado dado (default ACTIVA si caller no especifica). */
+    public List<AsignacionResponse> listarMisAsignaciones(String email, EstadoAsignacion estado) {
         var evaluador = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario con email", email));
-        return asignacionRepository.findByEvaluadorIdAndEstado(evaluador.getId(), EstadoAsignacion.ACTIVA)
+        return asignacionRepository.findByEvaluadorIdAndEstado(evaluador.getId(), estado)
                 .stream()
                 .map(mapper::toResponse)
                 .toList();
+    }
+
+    /** G09 — sin filtro de estado (historial completo del evaluador). */
+    public List<AsignacionResponse> listarMisAsignacionesTodas(String email) {
+        var evaluador = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario con email", email));
+        return asignacionRepository.findByEvaluadorId(evaluador.getId()).stream()
+                .map(mapper::toResponse)
+                .toList();
+    }
+
+    /**
+     * Snapshot inmutable del template al momento de asignar:
+     * {"criterios": [...], "umbralAprobacion": 6.00}.
+     */
+    private String construirSnapshot(String criteriosJson, java.math.BigDecimal umbralAprobacion) {
+        try {
+            ObjectNode snapshot = OBJECT_MAPPER.createObjectNode();
+            snapshot.set("criterios", OBJECT_MAPPER.readTree(criteriosJson));
+            snapshot.put("umbralAprobacion", umbralAprobacion);
+            return OBJECT_MAPPER.writeValueAsString(snapshot);
+        } catch (JsonProcessingException e) {
+            throw new BusinessException("Error al construir snapshot del template: " + e.getMessage());
+        }
     }
 
     @Transactional

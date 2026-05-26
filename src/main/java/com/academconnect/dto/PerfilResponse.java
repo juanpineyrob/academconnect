@@ -14,11 +14,13 @@ public record PerfilResponse(
         Integer edad,
         String ubicacion,
         String biografia,
+        String fotoUrl,
         String titulacion,
         String cargo,
         String institucion,
         String titulo,
         Set<UsuarioAreaTematicaResponse> areas,
+        long trabajosPublicados,
         Instant createdAt,
         Instant updatedAt) {
 }

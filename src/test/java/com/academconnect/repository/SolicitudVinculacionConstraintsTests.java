@@ -1,7 +1,6 @@
 package com.academconnect.repository;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -15,15 +14,22 @@ import com.academconnect.domain.SolicitudVinculacion;
 import com.academconnect.domain.TipoTrabajo;
 import com.academconnect.domain.Trabajo;
 
-class SolicitudVinculacionConstraintsTest extends AbstractJpaTest {
+public class SolicitudVinculacionConstraintsTests extends AbstractJpaTest {
 
-    @Autowired private EstudianteRepository estudianteRepository;
-    @Autowired private ProfesorRepository profesorRepository;
-    @Autowired private TrabajoRepository trabajoRepository;
-    @Autowired private SolicitudVinculacionRepository solicitudRepository;
+    @Autowired
+    private EstudianteRepository estudianteRepository;
+
+    @Autowired
+    private ProfesorRepository profesorRepository;
+
+    @Autowired
+    private TrabajoRepository trabajoRepository;
+
+    @Autowired
+    private SolicitudVinculacionRepository solicitudRepository;
 
     @Test
-    void solo_una_solicitud_pendiente_por_par_trabajo_estudiante() {
+    void saveShouldThrowDataIntegrityViolationExceptionWhenDuplicatePendienteForSamePair() {
         Estudiante est = newEstudiante("s@example.com");
         Profesor prof = newProfesor("o@example.com");
         Trabajo trabajo = newTrabajoAbierto(prof);
@@ -31,18 +37,19 @@ class SolicitudVinculacionConstraintsTest extends AbstractJpaTest {
         solicitudRepository.saveAndFlush(newSolicitud(trabajo, est, EstadoSolicitud.PENDIENTE));
 
         SolicitudVinculacion duplicada = newSolicitud(trabajo, est, EstadoSolicitud.PENDIENTE);
-        assertThatThrownBy(() -> solicitudRepository.saveAndFlush(duplicada))
-                .isInstanceOf(DataIntegrityViolationException.class);
+        Assertions.assertThrows(DataIntegrityViolationException.class,
+                () -> solicitudRepository.saveAndFlush(duplicada));
     }
 
     @Test
-    void permite_solicitud_rechazada_y_nueva_pendiente() {
+    void saveShouldAllowNewPendienteWhenPreviousIsRechazada() {
         Estudiante est = newEstudiante("t@example.com");
         Profesor prof = newProfesor("u@example.com");
         Trabajo trabajo = newTrabajoAbierto(prof);
 
         solicitudRepository.saveAndFlush(newSolicitud(trabajo, est, EstadoSolicitud.RECHAZADA));
-        solicitudRepository.saveAndFlush(newSolicitud(trabajo, est, EstadoSolicitud.PENDIENTE));
+        Assertions.assertDoesNotThrow(() ->
+                solicitudRepository.saveAndFlush(newSolicitud(trabajo, est, EstadoSolicitud.PENDIENTE)));
     }
 
     private Estudiante newEstudiante(String email) {
@@ -67,6 +74,7 @@ class SolicitudVinculacionConstraintsTest extends AbstractJpaTest {
         t.setTipo(TipoTrabajo.TCC);
         t.setEstado(EstadoTrabajo.ABIERTO);
         t.setOrientador(prof);
+        t.setKeywords(java.util.List.of("kw1", "kw2", "kw3"));
         return trabajoRepository.saveAndFlush(t);
     }
 

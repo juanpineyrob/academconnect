@@ -1,5 +1,7 @@
 package com.academconnect.domain;
 
+import java.math.BigDecimal;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -44,4 +46,8 @@ public class TemplateEvaluacion extends BaseEntity {
 
     @Column(nullable = false)
     private boolean activo = true;
+
+    /** Puntaje mínimo (inclusivo) sobre la calificación final agregada para aprobar el trabajo. */
+    @Column(name = "umbral_aprobacion", nullable = false, precision = 6, scale = 2)
+    private BigDecimal umbralAprobacion;
 }
