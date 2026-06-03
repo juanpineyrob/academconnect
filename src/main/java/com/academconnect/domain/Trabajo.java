@@ -80,4 +80,8 @@ public class Trabajo extends BaseEntity {
     /** Marca temporal del cierre de la evaluación agregada. */
     @Column(name = "evaluado_en")
     private Instant evaluadoEn;
+
+    /** URL pública del PDF adjunto, servido como recurso estático bajo /storage/trabajos. */
+    @Column(name = "archivo_url", length = 500)
+    private String archivoUrl;
 }

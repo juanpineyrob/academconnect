@@ -1,0 +1,1 @@
+ALTER TABLE trabajo ADD COLUMN archivo_url VARCHAR(500);

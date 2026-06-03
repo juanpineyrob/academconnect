@@ -35,3 +35,7 @@ build/
 ### Docs ###
 .materials/
 .plans/
+
+### Runtime uploads ###
+/data/avatars/
+/data/documents/

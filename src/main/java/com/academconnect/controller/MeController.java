@@ -7,10 +7,13 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.academconnect.domain.EstadoAsignacion;
 import com.academconnect.dto.AsignacionResponse;
@@ -23,6 +26,7 @@ import com.academconnect.dto.TrabajoResponse;
 import com.academconnect.dto.UsuarioAreaTematicaResponse;
 import com.academconnect.dto.UsuarioAreasRequest;
 import com.academconnect.service.AsignacionService;
+import com.academconnect.service.AvatarService;
 import com.academconnect.service.EvaluacionService;
 import com.academconnect.service.MetricasService;
 import com.academconnect.service.PerfilService;
@@ -36,6 +40,7 @@ import lombok.RequiredArgsConstructor;
 public class MeController {
 
     private final AsignacionService asignacionService;
+    private final AvatarService avatarService;
     private final EvaluacionService evaluacionService;
     private final PerfilService perfilService;
     private final TrabajoService trabajoService;
@@ -53,6 +58,14 @@ public class MeController {
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody PerfilUpdateRequest request) {
         return perfilService.actualizarPerfil(jwt.getSubject(), request);
+    }
+
+    @PostMapping(path = "/me/perfil/foto", consumes = "multipart/form-data")
+    @PreAuthorize("isAuthenticated()")
+    public PerfilResponse subirFoto(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestPart("file") MultipartFile file) {
+        return avatarService.subirAvatar(jwt.getSubject(), file);
     }
 
     @GetMapping("/me/areas")

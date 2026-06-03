@@ -44,6 +44,7 @@ public interface TrabajoMapper {
     @Mapping(target = "solicitudes", ignore = true)
     @Mapping(target = "puntajeAgregado", ignore = true)
     @Mapping(target = "evaluadoEn", ignore = true)
+    @Mapping(target = "archivoUrl", ignore = true)
     Trabajo toEntity(TrabajoRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -59,5 +60,6 @@ public interface TrabajoMapper {
     @Mapping(target = "solicitudes", ignore = true)
     @Mapping(target = "puntajeAgregado", ignore = true)
     @Mapping(target = "evaluadoEn", ignore = true)
+    @Mapping(target = "archivoUrl", ignore = true)
     void update(TrabajoRequest request, @MappingTarget Trabajo target);
 }
