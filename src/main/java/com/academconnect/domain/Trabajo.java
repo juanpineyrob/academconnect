@@ -47,8 +47,8 @@ public class Trabajo extends BaseEntity {
     @Column(nullable = false, length = 40)
     private EstadoTrabajo estado;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "orientador_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "orientador_id")
     private Profesor orientador;
 
     @ManyToOne(fetch = FetchType.LAZY)
