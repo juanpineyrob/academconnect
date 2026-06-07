@@ -153,4 +153,49 @@ class InvitacionOrientacionServiceTests {
         Assertions.assertThrows(BusinessException.class,
                 () -> service.aceptar(502L, null, 20L));
     }
+
+    @Test
+    void rechazarOkMarcaRechazadaYNoCambiaTrabajo() {
+        InvitacionOrientacion i = new InvitacionOrientacion();
+        i.setId(600L);
+        i.setTrabajo(trabajoBorrador);
+        i.setProfesor(profesor);
+        i.setEstado(EstadoInvitacion.PENDIENTE);
+        Mockito.when(repository.findById(600L)).thenReturn(Optional.of(i));
+
+        service.rechazar(600L, new com.academconnect.dto.RespuestaInvitacionRequest("Sin cupo"), 20L);
+
+        Assertions.assertEquals(EstadoInvitacion.RECHAZADA, i.getEstado());
+        Assertions.assertEquals("Sin cupo", i.getRespuesta());
+        Assertions.assertNotNull(i.getResueltaEn());
+        Assertions.assertEquals(EstadoTrabajo.BORRADOR, trabajoBorrador.getEstado());
+        Assertions.assertNull(trabajoBorrador.getOrientador());
+    }
+
+    @Test
+    void cancelarOkPorElDuenio() {
+        InvitacionOrientacion i = new InvitacionOrientacion();
+        i.setId(700L);
+        i.setTrabajo(trabajoBorrador);
+        i.setProfesor(profesor);
+        i.setEstado(EstadoInvitacion.PENDIENTE);
+        Mockito.when(repository.findById(700L)).thenReturn(Optional.of(i));
+
+        service.cancelar(700L, 10L);
+
+        Assertions.assertEquals(EstadoInvitacion.CANCELADA, i.getEstado());
+    }
+
+    @Test
+    void cancelarFallaSiNoEsDuenio() {
+        InvitacionOrientacion i = new InvitacionOrientacion();
+        i.setId(701L);
+        i.setTrabajo(trabajoBorrador);
+        i.setProfesor(profesor);
+        i.setEstado(EstadoInvitacion.PENDIENTE);
+        Mockito.when(repository.findById(701L)).thenReturn(Optional.of(i));
+
+        Assertions.assertThrows(BusinessException.class,
+                () -> service.cancelar(701L, 999L));
+    }
 }

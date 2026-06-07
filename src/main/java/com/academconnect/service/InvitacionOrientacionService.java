@@ -106,4 +106,70 @@ public class InvitacionOrientacionService {
                 List.of(profesorId, trabajo.getEstudiante().getId())));
         return mapper.toResponse(saved);
     }
+
+    @Transactional
+    public InvitacionOrientacionResponse rechazar(Long invitacionId, RespuestaInvitacionRequest request, Long profesorId) {
+        var i = repository.findById(invitacionId)
+                .orElseThrow(() -> new ResourceNotFoundException("InvitacionOrientacion", invitacionId));
+        if (!i.getProfesor().getId().equals(profesorId)) {
+            throw new BusinessException("Solo el profesor invitado puede rechazar");
+        }
+        if (i.getEstado() != EstadoInvitacion.PENDIENTE) {
+            throw new BusinessException("La invitación ya fue resuelta");
+        }
+        i.setEstado(EstadoInvitacion.RECHAZADA);
+        i.setRespuesta(request != null ? request.respuesta() : null);
+        i.setResueltaEn(Instant.now());
+        var saved = repository.save(i);
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.INVITACION_ORIENTACION_RECHAZADA,
+                profesorId,
+                "INVITACION_ORIENTACION", saved.getId(),
+                Map.of("trabajoId", i.getTrabajo().getId()),
+                VisibilidadActividad.PARTICIPANTES,
+                List.of(profesorId, i.getTrabajo().getEstudiante().getId())));
+        return mapper.toResponse(saved);
+    }
+
+    @Transactional
+    public InvitacionOrientacionResponse cancelar(Long invitacionId, Long estudianteId) {
+        var i = repository.findById(invitacionId)
+                .orElseThrow(() -> new ResourceNotFoundException("InvitacionOrientacion", invitacionId));
+        if (i.getTrabajo().getEstudiante() == null
+                || !i.getTrabajo().getEstudiante().getId().equals(estudianteId)) {
+            throw new BusinessException("Solo el dueño del trabajo puede cancelar la invitación");
+        }
+        if (i.getEstado() != EstadoInvitacion.PENDIENTE) {
+            throw new BusinessException("La invitación ya fue resuelta");
+        }
+        i.setEstado(EstadoInvitacion.CANCELADA);
+        i.setResueltaEn(Instant.now());
+        var saved = repository.save(i);
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.INVITACION_ORIENTACION_CANCELADA,
+                estudianteId,
+                "INVITACION_ORIENTACION", saved.getId(),
+                Map.of("trabajoId", i.getTrabajo().getId()),
+                VisibilidadActividad.PARTICIPANTES,
+                List.of(estudianteId, i.getProfesor().getId())));
+        return mapper.toResponse(saved);
+    }
+
+    public List<InvitacionOrientacionResponse> listarRecibidasPendientes(Long profesorId) {
+        return repository.findByProfesorIdAndEstadoOrderByCreatedAtDesc(profesorId, EstadoInvitacion.PENDIENTE)
+                .stream().map(mapper::toResponse).toList();
+    }
+
+    public List<InvitacionOrientacionResponse> listarRecibidas(Long profesorId) {
+        return repository.findByProfesorIdOrderByCreatedAtDesc(profesorId)
+                .stream().map(mapper::toResponse).toList();
+    }
+
+    public List<InvitacionOrientacionResponse> listarPorTrabajo(Long trabajoId) {
+        if (!trabajoRepository.existsById(trabajoId)) {
+            throw new ResourceNotFoundException("Trabajo", trabajoId);
+        }
+        return repository.findByTrabajoIdOrderByCreatedAtDesc(trabajoId)
+                .stream().map(mapper::toResponse).toList();
+    }
 }
