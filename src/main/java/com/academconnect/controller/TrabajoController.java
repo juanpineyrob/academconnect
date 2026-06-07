@@ -19,9 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.academconnect.domain.EstadoTrabajo;
 import com.academconnect.domain.TipoTrabajo;
+import com.academconnect.dto.InvitacionOrientacionResponse;
 import com.academconnect.dto.SolicitudVinculacionResponse;
 import com.academconnect.dto.TrabajoRequest;
 import com.academconnect.dto.TrabajoResponse;
+import com.academconnect.service.InvitacionOrientacionService;
 import com.academconnect.service.SolicitudVinculacionService;
 import com.academconnect.service.TrabajoService;
 
@@ -35,6 +37,7 @@ public class TrabajoController {
 
     private final TrabajoService service;
     private final SolicitudVinculacionService solicitudService;
+    private final InvitacionOrientacionService invitacionService;
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -102,5 +105,11 @@ public class TrabajoController {
     @PreAuthorize("isAuthenticated()")
     public List<SolicitudVinculacionResponse> listarSolicitudes(@PathVariable Long id) {
         return solicitudService.listarPorTrabajo(id);
+    }
+
+    @GetMapping("/{id}/invitaciones")
+    @PreAuthorize("isAuthenticated()")
+    public List<InvitacionOrientacionResponse> listarInvitaciones(@PathVariable Long id) {
+        return invitacionService.listarPorTrabajo(id);
     }
 }
