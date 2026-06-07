@@ -34,6 +34,7 @@ public class SolicitudVinculacionService {
     private final EstudianteRepository estudianteRepository;
     private final SolicitudVinculacionMapper mapper;
     private final ApplicationEventPublisher events;
+    private final TrabajoService trabajoService;
 
     public SolicitudVinculacionResponse buscarPorId(Long id) {
         return solicitudRepository.findById(id)
@@ -117,15 +118,7 @@ public class SolicitudVinculacionService {
         trabajo.setEstado(EstadoTrabajo.EN_DESARROLLO);
         trabajoRepository.save(trabajo);
 
-        var otrasPendientes = solicitudRepository.findByTrabajoIdAndEstado(trabajo.getId(), EstadoSolicitud.PENDIENTE);
-        for (var otra : otrasPendientes) {
-            if (!otra.getId().equals(id)) {
-                otra.setEstado(EstadoSolicitud.RECHAZADA);
-                otra.setRespuesta("Posición ocupada");
-                otra.setResueltaEn(Instant.now());
-            }
-        }
-        solicitudRepository.saveAll(otrasPendientes);
+        trabajoService.autoRechazarPendientes(trabajo, "Posición ocupada");
 
         var saved = solicitudRepository.save(solicitud);
         events.publishEvent(ActividadEvent.of(

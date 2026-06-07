@@ -1,6 +1,7 @@
 package com.academconnect.service;
 
 import com.academconnect.domain.AreaTematica;
+import com.academconnect.domain.EstadoSolicitud;
 import com.academconnect.domain.EstadoTrabajo;
 import com.academconnect.domain.TipoActividad;
 import com.academconnect.domain.TipoTrabajo;
@@ -347,6 +348,45 @@ public class TrabajoService {
                 profesorId,
                 "TRABAJO", saved.getId(),
                 Map.of("titulo", saved.getTitulo(), "duracionDias", request.duracionDias()),
+                VisibilidadActividad.PUBLICA,
+                participantesDe(saved)));
+        return mapper.toResponse(saved);
+    }
+
+    /** Side-effect compartido: marca RECHAZADA todas las pendientes de un trabajo con respuesta dada. */
+    @Transactional
+    public void autoRechazarPendientes(Trabajo trabajo, String respuesta) {
+        var pendientes = solicitudRepository.findByTrabajoIdAndEstado(trabajo.getId(), EstadoSolicitud.PENDIENTE);
+        java.time.Instant now = java.time.Instant.now();
+        for (var s : pendientes) {
+            s.setEstado(EstadoSolicitud.RECHAZADA);
+            s.setRespuesta(respuesta);
+            s.setResueltaEn(now);
+        }
+        solicitudRepository.saveAll(pendientes);
+    }
+
+    /** Camino 2.2 — el profesor retira manualmente una publicación ABIERTA. */
+    @Transactional
+    public TrabajoResponse cerrar(Long trabajoId, Long profesorId) {
+        var trabajo = trabajoRepository.findById(trabajoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trabajo", trabajoId));
+        if (trabajo.getOrientador() == null || !trabajo.getOrientador().getId().equals(profesorId)) {
+            throw new BusinessException("Solo el profesor orientador puede cerrar el trabajo");
+        }
+        if (trabajo.getEstado() != EstadoTrabajo.ABIERTO) {
+            throw new BusinessException("Solo se puede cerrar un trabajo ABIERTO");
+        }
+
+        trabajo.setEstado(EstadoTrabajo.CANCELADO);
+        autoRechazarPendientes(trabajo, "Trabajo cerrado");
+        Trabajo saved = trabajoRepository.save(trabajo);
+
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.TRABAJO_CERRADO,
+                profesorId,
+                "TRABAJO", saved.getId(),
+                Map.of("titulo", saved.getTitulo()),
                 VisibilidadActividad.PUBLICA,
                 participantesDe(saved)));
         return mapper.toResponse(saved);

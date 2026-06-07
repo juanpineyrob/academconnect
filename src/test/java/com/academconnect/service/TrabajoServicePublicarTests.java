@@ -114,4 +114,32 @@ class TrabajoServicePublicarTests {
         Mockito.verify(events).publishEvent(c.capture());
         Assertions.assertEquals(TipoActividad.TRABAJO_PUBLICADO, c.getValue().tipo());
     }
+
+    @Test
+    void cerrarOkTransicionaACanceladoYAutoRechazaPendientes() {
+        borrador.setEstado(EstadoTrabajo.ABIERTO);
+        var pendiente = new com.academconnect.domain.SolicitudVinculacion();
+        pendiente.setEstado(com.academconnect.domain.EstadoSolicitud.PENDIENTE);
+        pendiente.setTrabajo(borrador);
+        Mockito.when(solicitudRepository.findByTrabajoIdAndEstado(100L, com.academconnect.domain.EstadoSolicitud.PENDIENTE))
+                .thenReturn(List.of(pendiente));
+
+        service.cerrar(100L, 20L);
+
+        Assertions.assertEquals(EstadoTrabajo.CANCELADO, borrador.getEstado());
+        Assertions.assertEquals(com.academconnect.domain.EstadoSolicitud.RECHAZADA, pendiente.getEstado());
+        Assertions.assertEquals("Trabajo cerrado", pendiente.getRespuesta());
+    }
+
+    @Test
+    void cerrarFallaSiNoEsOrientador() {
+        borrador.setEstado(EstadoTrabajo.ABIERTO);
+        Assertions.assertThrows(BusinessException.class, () -> service.cerrar(100L, 999L));
+    }
+
+    @Test
+    void cerrarFallaSiNoEstaAbierto() {
+        borrador.setEstado(EstadoTrabajo.BORRADOR);
+        Assertions.assertThrows(BusinessException.class, () -> service.cerrar(100L, 20L));
+    }
 }
