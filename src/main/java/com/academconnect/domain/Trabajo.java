@@ -84,4 +84,7 @@ public class Trabajo extends BaseEntity {
     /** URL pública del PDF adjunto, servido como recurso estático bajo /storage/trabajos. */
     @Column(name = "archivo_url", length = 500)
     private String archivoUrl;
+
+    @Column(name = "expira_en")
+    private Instant expiraEn;
 }
