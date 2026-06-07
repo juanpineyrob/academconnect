@@ -157,4 +157,31 @@ public class SolicitudVinculacionService {
                         trabajo.getOrientador() != null ? trabajo.getOrientador().getId() : 0L)));
         return mapper.toResponse(saved);
     }
+
+    /** Camino 2.2 — el estudiante cancela su solicitud pendiente. */
+    @Transactional
+    public SolicitudVinculacionResponse cancelar(Long solicitudId, Long estudianteId) {
+        var solicitud = solicitudRepository.findById(solicitudId)
+                .orElseThrow(() -> new ResourceNotFoundException("SolicitudVinculacion", solicitudId));
+        if (!solicitud.getEstudiante().getId().equals(estudianteId)) {
+            throw new BusinessException("Solo el dueño de la solicitud puede cancelarla");
+        }
+        if (solicitud.getEstado() != EstadoSolicitud.PENDIENTE) {
+            throw new BusinessException("Solo se pueden cancelar solicitudes PENDIENTE");
+        }
+        solicitud.setEstado(EstadoSolicitud.CANCELADA);
+        solicitud.setResueltaEn(Instant.now());
+        var saved = solicitudRepository.save(solicitud);
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.SOLICITUD_VINCULACION_CANCELADA,
+                estudianteId,
+                "SOLICITUD_VINCULACION", saved.getId(),
+                Map.of("trabajoId", solicitud.getTrabajo().getId(),
+                        "trabajoTitulo", solicitud.getTrabajo().getTitulo()),
+                VisibilidadActividad.PARTICIPANTES,
+                solicitud.getTrabajo().getOrientador() != null
+                        ? List.of(estudianteId, solicitud.getTrabajo().getOrientador().getId())
+                        : List.of(estudianteId)));
+        return mapper.toResponse(saved);
+    }
 }
