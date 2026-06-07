@@ -23,6 +23,7 @@ public record TrabajoResponse(
         List<String> coorientadoresNombres,
         BigDecimal puntajeAgregado,
         Instant evaluadoEn,
+        Instant expiraEn,
         String archivoUrl,
         Instant createdAt,
         Instant updatedAt) {
