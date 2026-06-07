@@ -60,4 +60,6 @@ public interface TrabajoRepository
            "AND a.evaluador.id = :evaluadorId")
     long countRechazadosConEvaluadoresIncluyendo(
             @org.springframework.data.repository.query.Param("evaluadorId") Long evaluadorId);
+
+    List<Trabajo> findByEstadoAndExpiraEnBefore(EstadoTrabajo estado, java.time.Instant fecha);
 }
