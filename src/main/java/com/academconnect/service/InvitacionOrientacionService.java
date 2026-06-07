@@ -74,4 +74,36 @@ public class InvitacionOrientacionService {
                 List.of(estudianteId, profesor.getId())));
         return mapper.toResponse(saved);
     }
+
+    @Transactional
+    public InvitacionOrientacionResponse aceptar(Long invitacionId, RespuestaInvitacionRequest request, Long profesorId) {
+        var i = repository.findById(invitacionId)
+                .orElseThrow(() -> new ResourceNotFoundException("InvitacionOrientacion", invitacionId));
+        if (!i.getProfesor().getId().equals(profesorId)) {
+            throw new BusinessException("Solo el profesor invitado puede aceptar");
+        }
+        if (i.getEstado() != EstadoInvitacion.PENDIENTE) {
+            throw new BusinessException("La invitación ya fue resuelta");
+        }
+
+        i.setEstado(EstadoInvitacion.ACEPTADA);
+        i.setRespuesta(request != null ? request.respuesta() : null);
+        i.setResueltaEn(Instant.now());
+
+        var trabajo = i.getTrabajo();
+        trabajo.setOrientador(i.getProfesor());
+        trabajo.setEstado(EstadoTrabajo.EN_DESARROLLO);
+
+        var saved = repository.save(i);
+        trabajoRepository.save(trabajo);
+
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.INVITACION_ORIENTACION_ACEPTADA,
+                profesorId,
+                "INVITACION_ORIENTACION", saved.getId(),
+                Map.of("trabajoId", trabajo.getId(), "trabajoTitulo", trabajo.getTitulo()),
+                VisibilidadActividad.PARTICIPANTES,
+                List.of(profesorId, trabajo.getEstudiante().getId())));
+        return mapper.toResponse(saved);
+    }
 }

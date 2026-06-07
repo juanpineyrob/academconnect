@@ -109,4 +109,48 @@ class InvitacionOrientacionServiceTests {
         service.crear(req, 10L);
         Mockito.verify(events).publishEvent(Mockito.any(ActividadEvent.class));
     }
+
+    @Test
+    void aceptarOkVinculaOrientadorYTransicionaTrabajo() {
+        InvitacionOrientacion i = new InvitacionOrientacion();
+        i.setId(500L);
+        i.setTrabajo(trabajoBorrador);
+        i.setProfesor(profesor);
+        i.setEstado(EstadoInvitacion.PENDIENTE);
+        Mockito.when(repository.findById(500L)).thenReturn(Optional.of(i));
+
+        service.aceptar(500L, new com.academconnect.dto.RespuestaInvitacionRequest("OK, acepto"), 20L);
+
+        Assertions.assertEquals(EstadoInvitacion.ACEPTADA, i.getEstado());
+        Assertions.assertEquals("OK, acepto", i.getRespuesta());
+        Assertions.assertNotNull(i.getResueltaEn());
+        Assertions.assertEquals(profesor, trabajoBorrador.getOrientador());
+        Assertions.assertEquals(EstadoTrabajo.EN_DESARROLLO, trabajoBorrador.getEstado());
+    }
+
+    @Test
+    void aceptarFallaSiProfesorNoEsElInvitado() {
+        InvitacionOrientacion i = new InvitacionOrientacion();
+        i.setId(501L);
+        i.setTrabajo(trabajoBorrador);
+        i.setProfesor(profesor);
+        i.setEstado(EstadoInvitacion.PENDIENTE);
+        Mockito.when(repository.findById(501L)).thenReturn(Optional.of(i));
+
+        Assertions.assertThrows(BusinessException.class,
+                () -> service.aceptar(501L, null, 999L));
+    }
+
+    @Test
+    void aceptarFallaSiNoEstaPendiente() {
+        InvitacionOrientacion i = new InvitacionOrientacion();
+        i.setId(502L);
+        i.setTrabajo(trabajoBorrador);
+        i.setProfesor(profesor);
+        i.setEstado(EstadoInvitacion.RECHAZADA);
+        Mockito.when(repository.findById(502L)).thenReturn(Optional.of(i));
+
+        Assertions.assertThrows(BusinessException.class,
+                () -> service.aceptar(502L, null, 20L));
+    }
 }
