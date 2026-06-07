@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 import com.academconnect.dto.RespuestaSolicitudRequest;
 import com.academconnect.dto.SolicitudVinculacionRequest;
 import com.academconnect.dto.SolicitudVinculacionResponse;
+import com.academconnect.exception.ResourceNotFoundException;
+import com.academconnect.repository.UsuarioRepository;
 import com.academconnect.service.SolicitudVinculacionService;
 
 import jakarta.validation.Valid;
@@ -24,6 +26,7 @@ import lombok.RequiredArgsConstructor;
 public class SolicitudVinculacionController {
 
     private final SolicitudVinculacionService service;
+    private final UsuarioRepository usuarioRepository;
 
     @GetMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
@@ -52,5 +55,19 @@ public class SolicitudVinculacionController {
             @PathVariable Long id,
             @RequestBody(required = false) RespuestaSolicitudRequest request) {
         return service.rechazar(id, request);
+    }
+
+    @PostMapping("/{id}/cancelar")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public SolicitudVinculacionResponse cancelar(@PathVariable Long id,
+                                                 org.springframework.security.core.Authentication authn) {
+        return service.cancelar(id, currentUserId(authn));
+    }
+
+    private Long currentUserId(org.springframework.security.core.Authentication authn) {
+        var email = authn.getName();
+        return usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario con email", email))
+                .getId();
     }
 }

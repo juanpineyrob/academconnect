@@ -20,9 +20,12 @@ import org.springframework.web.bind.annotation.RestController;
 import com.academconnect.domain.EstadoTrabajo;
 import com.academconnect.domain.TipoTrabajo;
 import com.academconnect.dto.InvitacionOrientacionResponse;
+import com.academconnect.dto.PublicarTrabajoRequest;
 import com.academconnect.dto.SolicitudVinculacionResponse;
 import com.academconnect.dto.TrabajoRequest;
 import com.academconnect.dto.TrabajoResponse;
+import com.academconnect.exception.ResourceNotFoundException;
+import com.academconnect.repository.UsuarioRepository;
 import com.academconnect.service.InvitacionOrientacionService;
 import com.academconnect.service.SolicitudVinculacionService;
 import com.academconnect.service.TrabajoService;
@@ -38,6 +41,7 @@ public class TrabajoController {
     private final TrabajoService service;
     private final SolicitudVinculacionService solicitudService;
     private final InvitacionOrientacionService invitacionService;
+    private final UsuarioRepository usuarioRepository;
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -111,5 +115,27 @@ public class TrabajoController {
     @PreAuthorize("isAuthenticated()")
     public List<InvitacionOrientacionResponse> listarInvitaciones(@PathVariable Long id) {
         return invitacionService.listarPorTrabajo(id);
+    }
+
+    @PostMapping("/{id}/publicar")
+    @PreAuthorize("hasRole('PROFESOR')")
+    public TrabajoResponse publicar(@PathVariable Long id,
+                                    @Valid @RequestBody PublicarTrabajoRequest request,
+                                    org.springframework.security.core.Authentication authn) {
+        return service.publicar(id, request, currentUserId(authn));
+    }
+
+    @PostMapping("/{id}/cerrar")
+    @PreAuthorize("hasRole('PROFESOR')")
+    public TrabajoResponse cerrar(@PathVariable Long id,
+                                  org.springframework.security.core.Authentication authn) {
+        return service.cerrar(id, currentUserId(authn));
+    }
+
+    private Long currentUserId(org.springframework.security.core.Authentication authn) {
+        var email = authn.getName();
+        return usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario con email", email))
+                .getId();
     }
 }
