@@ -120,6 +120,38 @@ public class TrabajoService {
         return mapper.toResponse(saved);
     }
 
+    /** Camino 2.1 — el estudiante actualiza su propio trabajo si está en BORRADOR. */
+    @Transactional
+    public TrabajoResponse actualizarBorradorPorEstudiante(Long trabajoId, TrabajoEstudianteRequest request, Long estudianteId) {
+        var trabajo = trabajoRepository.findById(trabajoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trabajo", trabajoId));
+        if (trabajo.getEstudiante() == null || !trabajo.getEstudiante().getId().equals(estudianteId)) {
+            throw new BusinessException("No sos el dueño de este trabajo");
+        }
+        if (trabajo.getEstado() != EstadoTrabajo.BORRADOR) {
+            throw new BusinessException("Solo se pueden editar trabajos en estado BORRADOR");
+        }
+
+        trabajo.setTitulo(request.titulo());
+        trabajo.setDescripcion(request.descripcion());
+        trabajo.setTipo(request.tipo());
+        trabajo.setKeywords(normalizarKeywords(request.keywords()));
+
+        Set<AreaTematica> areas = (request.areaIds() != null && !request.areaIds().isEmpty())
+                ? new HashSet<>(areaTematicaRepository.findAllById(request.areaIds()))
+                : new HashSet<>();
+        trabajo.setAreas(areas);
+
+        return mapper.toResponse(trabajoRepository.save(trabajo));
+    }
+
+    /** Camino 2.1 — lista todos los trabajos del estudiante. */
+    public List<TrabajoResponse> listarMisBorradores(Long estudianteId) {
+        return trabajoRepository.findByEstudianteId(estudianteId).stream()
+                .map(mapper::toResponse)
+                .toList();
+    }
+
     /**
      * Importación legacy: el administrador da de alta trabajos finalizados fuera del sistema.
      * No pasa por el state machine — el {@code estado} es el del request (típicamente APROBADO).

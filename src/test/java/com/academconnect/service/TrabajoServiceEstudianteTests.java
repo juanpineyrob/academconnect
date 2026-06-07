@@ -85,4 +85,42 @@ class TrabajoServiceEstudianteTests {
         // recursoTipo accessor: ActividadEvent is a record with `recursoTipo` field
         Assertions.assertEquals("TRABAJO", captor.getValue().recursoTipo());
     }
+
+    @Test
+    void actualizarFallaSiUsuarioNoEsDuenio() {
+        Trabajo t = new Trabajo();
+        t.setId(99L);
+        t.setEstado(EstadoTrabajo.BORRADOR);
+        t.setEstudiante(estudiante);
+        Mockito.when(trabajoRepository.findById(99L)).thenReturn(Optional.of(t));
+
+        Assertions.assertThrows(com.academconnect.exception.BusinessException.class,
+                () -> service.actualizarBorradorPorEstudiante(99L, request, /* otroEstudianteId */ 999L));
+    }
+
+    @Test
+    void actualizarFallaSiNoEstaEnBorrador() {
+        Trabajo t = new Trabajo();
+        t.setId(100L);
+        t.setEstado(EstadoTrabajo.EN_DESARROLLO);
+        t.setEstudiante(estudiante);
+        Mockito.when(trabajoRepository.findById(100L)).thenReturn(Optional.of(t));
+
+        Assertions.assertThrows(com.academconnect.exception.BusinessException.class,
+                () -> service.actualizarBorradorPorEstudiante(100L, request, 10L));
+    }
+
+    @Test
+    void actualizarOkSobreescribeCampos() {
+        Trabajo t = new Trabajo();
+        t.setId(200L);
+        t.setEstado(EstadoTrabajo.BORRADOR);
+        t.setEstudiante(estudiante);
+        Mockito.when(trabajoRepository.findById(200L)).thenReturn(Optional.of(t));
+
+        service.actualizarBorradorPorEstudiante(200L, request, 10L);
+        Assertions.assertEquals("Mi TCC", t.getTitulo());
+        Assertions.assertEquals(TipoTrabajo.TCC, t.getTipo());
+        Assertions.assertEquals(List.of("seguridad","devsecops","ci/cd"), t.getKeywords());
+    }
 }
