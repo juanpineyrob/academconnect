@@ -13,6 +13,7 @@ import com.academconnect.mapper.TrabajoMapper;
 import com.academconnect.repository.AreaTematicaRepository;
 import com.academconnect.repository.EstudianteRepository;
 import com.academconnect.repository.ProfesorRepository;
+import com.academconnect.repository.SolicitudVinculacionRepository;
 import com.academconnect.repository.TrabajoRepository;
 import com.academconnect.repository.UsuarioRepository;
 import org.junit.jupiter.api.Assertions;
@@ -42,6 +43,7 @@ class TrabajoServiceEstudianteTests {
     @Mock private EstudianteRepository estudianteRepository;
     @Mock private UsuarioRepository usuarioRepository;
     @Mock private AreaTematicaRepository areaTematicaRepository;
+    @Mock private SolicitudVinculacionRepository solicitudRepository;
     @Mock private TrabajoMapper mapper;
     @Mock private ApplicationEventPublisher events;
 

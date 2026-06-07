@@ -14,9 +14,11 @@ import com.academconnect.event.ActividadEvent;
 import com.academconnect.exception.BusinessException;
 import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.mapper.TrabajoMapper;
+import com.academconnect.dto.PublicarTrabajoRequest;
 import com.academconnect.repository.AreaTematicaRepository;
 import com.academconnect.repository.EstudianteRepository;
 import com.academconnect.repository.ProfesorRepository;
+import com.academconnect.repository.SolicitudVinculacionRepository;
 import com.academconnect.repository.TrabajoRepository;
 import com.academconnect.repository.UsuarioRepository;
 import com.academconnect.repository.spec.TrabajoSpecs;
@@ -43,6 +45,7 @@ public class TrabajoService {
     private final EstudianteRepository estudianteRepository;
     private final UsuarioRepository usuarioRepository;
     private final AreaTematicaRepository areaTematicaRepository;
+    private final SolicitudVinculacionRepository solicitudRepository;
     private final TrabajoMapper mapper;
     private final ApplicationEventPublisher events;
 
@@ -310,6 +313,43 @@ public class TrabajoService {
                 .map(String::toLowerCase)
                 .distinct()
                 .toList();
+    }
+
+    private static final Set<Integer> DURACIONES_PERMITIDAS = Set.of(7, 15, 30, 60);
+
+    /** Camino 2.2 — publica un BORRADOR como ABIERTO con expiración configurable. */
+    @Transactional
+    public TrabajoResponse publicar(Long trabajoId, PublicarTrabajoRequest request, Long profesorId) {
+        if (!DURACIONES_PERMITIDAS.contains(request.duracionDias())) {
+            throw new BusinessException("Duración inválida; debe ser 7, 15, 30 o 60 días");
+        }
+        var trabajo = trabajoRepository.findById(trabajoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trabajo", trabajoId));
+        if (trabajo.getOrientador() == null || !trabajo.getOrientador().getId().equals(profesorId)) {
+            throw new BusinessException("Solo el profesor orientador puede publicar el trabajo");
+        }
+        if (trabajo.getEstado() != EstadoTrabajo.BORRADOR) {
+            throw new BusinessException("Solo se puede publicar desde BORRADOR");
+        }
+        if (trabajo.getAreas() == null || trabajo.getAreas().isEmpty()) {
+            throw new BusinessException("Asigná al menos un área antes de publicar");
+        }
+        if (trabajo.getKeywords() == null || trabajo.getKeywords().size() < 3) {
+            throw new BusinessException("Asigná entre 3 y 8 keywords antes de publicar");
+        }
+
+        trabajo.setEstado(EstadoTrabajo.ABIERTO);
+        trabajo.setExpiraEn(java.time.Instant.now().plus(request.duracionDias(), java.time.temporal.ChronoUnit.DAYS));
+
+        Trabajo saved = trabajoRepository.save(trabajo);
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.TRABAJO_PUBLICADO,
+                profesorId,
+                "TRABAJO", saved.getId(),
+                Map.of("titulo", saved.getTitulo(), "duracionDias", request.duracionDias()),
+                VisibilidadActividad.PUBLICA,
+                participantesDe(saved)));
+        return mapper.toResponse(saved);
     }
 
     private TrabajoResponse cambiarEstado(Long id, EstadoTrabajo estadoRequerido, EstadoTrabajo nuevoEstado) {
