@@ -6,6 +6,8 @@ import com.academconnect.domain.TipoActividad;
 import com.academconnect.domain.TipoTrabajo;
 import com.academconnect.domain.Trabajo;
 import com.academconnect.domain.VisibilidadActividad;
+import com.academconnect.dto.TrabajoAdminImportRequest;
+import com.academconnect.dto.TrabajoEstudianteRequest;
 import com.academconnect.dto.TrabajoRequest;
 import com.academconnect.dto.TrabajoResponse;
 import com.academconnect.event.ActividadEvent;
@@ -13,6 +15,7 @@ import com.academconnect.exception.BusinessException;
 import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.mapper.TrabajoMapper;
 import com.academconnect.repository.AreaTematicaRepository;
+import com.academconnect.repository.EstudianteRepository;
 import com.academconnect.repository.ProfesorRepository;
 import com.academconnect.repository.TrabajoRepository;
 import com.academconnect.repository.UsuarioRepository;
@@ -37,6 +40,7 @@ public class TrabajoService {
 
     private final TrabajoRepository trabajoRepository;
     private final ProfesorRepository profesorRepository;
+    private final EstudianteRepository estudianteRepository;
     private final UsuarioRepository usuarioRepository;
     private final AreaTematicaRepository areaTematicaRepository;
     private final TrabajoMapper mapper;
@@ -82,6 +86,78 @@ public class TrabajoService {
                 "TRABAJO", saved.getId(),
                 Map.of("titulo", saved.getTitulo(), "tipo", saved.getTipo().name()),
                 VisibilidadActividad.PARTICIPANTES,
+                participantesDe(saved)));
+        return mapper.toResponse(saved);
+    }
+
+    /** Camino 2.1 — el estudiante crea su propio trabajo en BORRADOR sin orientador. */
+    @Transactional
+    public TrabajoResponse crearPorEstudiante(TrabajoEstudianteRequest request, Long estudianteId) {
+        var estudiante = estudianteRepository.findById(estudianteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante", estudianteId));
+
+        var trabajo = new Trabajo();
+        trabajo.setTitulo(request.titulo());
+        trabajo.setDescripcion(request.descripcion());
+        trabajo.setTipo(request.tipo());
+        trabajo.setEstado(EstadoTrabajo.BORRADOR);
+        trabajo.setEstudiante(estudiante);
+        trabajo.setKeywords(normalizarKeywords(request.keywords()));
+
+        if (request.areaIds() != null && !request.areaIds().isEmpty()) {
+            Set<AreaTematica> areas = new HashSet<>(areaTematicaRepository.findAllById(request.areaIds()));
+            trabajo.setAreas(areas);
+        }
+
+        Trabajo saved = trabajoRepository.save(trabajo);
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.TRABAJO_CREADO,
+                estudiante.getId(),
+                "TRABAJO", saved.getId(),
+                Map.of("titulo", saved.getTitulo(), "tipo", saved.getTipo().name(), "origen", "ESTUDIANTE"),
+                VisibilidadActividad.PARTICIPANTES,
+                participantesDe(saved)));
+        return mapper.toResponse(saved);
+    }
+
+    /**
+     * Importación legacy: el administrador da de alta trabajos finalizados fuera del sistema.
+     * No pasa por el state machine — el {@code estado} es el del request (típicamente APROBADO).
+     */
+    @Transactional
+    public TrabajoResponse importarLegacy(TrabajoAdminImportRequest request) {
+        var orientador = profesorRepository.findById(request.orientadorId())
+                .orElseThrow(() -> new ResourceNotFoundException("Profesor", request.orientadorId()));
+
+        var trabajo = new Trabajo();
+        trabajo.setTitulo(request.titulo());
+        trabajo.setDescripcion(request.descripcion());
+        trabajo.setTipo(request.tipo());
+        trabajo.setEstado(request.estado());
+        trabajo.setOrientador(orientador);
+        trabajo.setKeywords(normalizarKeywords(request.keywords()));
+        trabajo.setPuntajeAgregado(request.puntajeAgregado());
+        trabajo.setEvaluadoEn(request.evaluadoEn());
+        trabajo.setArchivoUrl(request.archivoUrl());
+
+        if (request.estudianteId() != null) {
+            var estudiante = estudianteRepository.findById(request.estudianteId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Estudiante", request.estudianteId()));
+            trabajo.setEstudiante(estudiante);
+        }
+
+        if (request.areaIds() != null && !request.areaIds().isEmpty()) {
+            Set<AreaTematica> areas = new HashSet<>(areaTematicaRepository.findAllById(request.areaIds()));
+            trabajo.setAreas(areas);
+        }
+
+        Trabajo saved = trabajoRepository.save(trabajo);
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.TRABAJO_CREADO,
+                null,
+                "TRABAJO", saved.getId(),
+                Map.of("titulo", saved.getTitulo(), "tipo", saved.getTipo().name(), "origen", "ADMIN_IMPORT"),
+                VisibilidadActividad.PUBLICA,
                 participantesDe(saved)));
         return mapper.toResponse(saved);
     }
