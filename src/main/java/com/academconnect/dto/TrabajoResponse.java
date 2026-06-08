@@ -24,7 +24,7 @@ public record TrabajoResponse(
         BigDecimal puntajeAgregado,
         Instant evaluadoEn,
         Instant expiraEn,
-        String archivoUrl,
+        String archivoStorageKey,
         Instant createdAt,
         Instant updatedAt) {
 }

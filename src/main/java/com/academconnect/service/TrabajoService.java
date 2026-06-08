@@ -186,7 +186,7 @@ public class TrabajoService {
         trabajo.setKeywords(normalizarKeywords(request.keywords()));
         trabajo.setPuntajeAgregado(request.puntajeAgregado());
         trabajo.setEvaluadoEn(request.evaluadoEn());
-        trabajo.setArchivoUrl(request.archivoUrl());
+        trabajo.setArchivoStorageKey(request.archivoStorageKey());
 
         if (request.estudianteId() != null) {
             var estudiante = estudianteRepository.findById(request.estudianteId())
@@ -426,7 +426,8 @@ public class TrabajoService {
     public ArchivoTrabajo descargarArchivo(Long id, Authentication auth) {
         var trabajo = trabajoRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Trabajo", id));
-        if (trabajo.getArchivoUrl() == null || trabajo.getArchivoUrl().isBlank()) {
+        String storageKey = trabajo.getArchivoStorageKey();
+        if (storageKey == null || storageKey.isBlank()) {
             throw new ResourceNotFoundException("Archivo del trabajo", id);
         }
 
@@ -442,13 +443,12 @@ public class TrabajoService {
             }
         }
 
-        String filename = extraerNombreArchivo(trabajo.getArchivoUrl());
         Path root = Path.of(trabajosRoot).toAbsolutePath().normalize();
-        Path filepath = root.resolve(filename).normalize();
+        Path filepath = root.resolve(storageKey).normalize();
         if (!filepath.startsWith(root) || !Files.exists(filepath)) {
             throw new ResourceNotFoundException("Archivo del trabajo", id);
         }
-        return new ArchivoTrabajo(new FileSystemResource(filepath), filename);
+        return new ArchivoTrabajo(new FileSystemResource(filepath), storageKey);
     }
 
     private boolean puedeAccederPDF(Usuario usuario, Trabajo trabajo) {
@@ -456,11 +456,6 @@ public class TrabajoService {
         if (trabajo.getOrientador() != null && trabajo.getOrientador().getId().equals(usuario.getId())) return true;
         if (trabajo.getEstudiante() != null && trabajo.getEstudiante().getId().equals(usuario.getId())) return true;
         return false;
-    }
-
-    private static String extraerNombreArchivo(String archivoUrl) {
-        int idx = archivoUrl.lastIndexOf('/');
-        return idx >= 0 ? archivoUrl.substring(idx + 1) : archivoUrl;
     }
 
     public record ArchivoTrabajo(Resource resource, String filename) {}
