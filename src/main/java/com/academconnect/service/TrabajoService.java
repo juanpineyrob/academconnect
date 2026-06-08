@@ -1,11 +1,13 @@
 package com.academconnect.service;
 
+import com.academconnect.domain.Administrador;
 import com.academconnect.domain.AreaTematica;
 import com.academconnect.domain.EstadoSolicitud;
 import com.academconnect.domain.EstadoTrabajo;
 import com.academconnect.domain.TipoActividad;
 import com.academconnect.domain.TipoTrabajo;
 import com.academconnect.domain.Trabajo;
+import com.academconnect.domain.Usuario;
 import com.academconnect.domain.VisibilidadActividad;
 import com.academconnect.dto.TrabajoAdminImportRequest;
 import com.academconnect.dto.TrabajoEstudianteRequest;
@@ -24,13 +26,20 @@ import com.academconnect.repository.TrabajoRepository;
 import com.academconnect.repository.UsuarioRepository;
 import com.academconnect.repository.spec.TrabajoSpecs;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,6 +58,9 @@ public class TrabajoService {
     private final SolicitudVinculacionRepository solicitudRepository;
     private final TrabajoMapper mapper;
     private final ApplicationEventPublisher events;
+
+    @Value("${academconnect.storage.trabajos:./data/trabajos}")
+    private String trabajosRoot;
 
     public List<TrabajoResponse> listar() {
         return trabajoRepository.findAll().stream()
@@ -232,8 +244,11 @@ public class TrabajoService {
 
         if (soloPublicos) {
             spec = spec.and(TrabajoSpecs.estadoIgual(EstadoTrabajo.APROBADO));
-        } else {
-            spec = combinar(spec, TrabajoSpecs.estadoIgual(estado));
+        } else if (estado != null) {
+            spec = spec.and(TrabajoSpecs.estadoIgual(estado));
+        } else if (orientadorId == null && estudianteId == null) {
+            // Repositorio: sin filtro explícito de estado ni de participante, solo trabajos APROBADOS.
+            spec = spec.and(TrabajoSpecs.estadoIgual(EstadoTrabajo.APROBADO));
         }
 
         if (q != null && !q.isBlank()) {
@@ -402,4 +417,51 @@ public class TrabajoService {
         trabajo.setEstado(nuevoEstado);
         return mapper.toResponse(trabajoRepository.save(trabajo));
     }
+
+    /**
+     * Sirve el PDF asociado a un trabajo. Reglas de acceso:
+     *  - APROBADO: público (auth opcional).
+     *  - Otros estados: requiere autenticación y que el caller sea orientador, estudiante o administrador.
+     */
+    public ArchivoTrabajo descargarArchivo(Long id, Authentication auth) {
+        var trabajo = trabajoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Trabajo", id));
+        if (trabajo.getArchivoUrl() == null || trabajo.getArchivoUrl().isBlank()) {
+            throw new ResourceNotFoundException("Archivo del trabajo", id);
+        }
+
+        boolean esPublico = trabajo.getEstado() == EstadoTrabajo.APROBADO;
+        if (!esPublico) {
+            if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
+                throw new AccessDeniedException("Trabajo no disponible");
+            }
+            var usuario = usuarioRepository.findByEmail(auth.getName())
+                    .orElseThrow(() -> new AccessDeniedException("Usuario no encontrado"));
+            if (!puedeAccederPDF(usuario, trabajo)) {
+                throw new AccessDeniedException("Sin permisos sobre este trabajo");
+            }
+        }
+
+        String filename = extraerNombreArchivo(trabajo.getArchivoUrl());
+        Path root = Path.of(trabajosRoot).toAbsolutePath().normalize();
+        Path filepath = root.resolve(filename).normalize();
+        if (!filepath.startsWith(root) || !Files.exists(filepath)) {
+            throw new ResourceNotFoundException("Archivo del trabajo", id);
+        }
+        return new ArchivoTrabajo(new FileSystemResource(filepath), filename);
+    }
+
+    private boolean puedeAccederPDF(Usuario usuario, Trabajo trabajo) {
+        if (usuario instanceof Administrador) return true;
+        if (trabajo.getOrientador() != null && trabajo.getOrientador().getId().equals(usuario.getId())) return true;
+        if (trabajo.getEstudiante() != null && trabajo.getEstudiante().getId().equals(usuario.getId())) return true;
+        return false;
+    }
+
+    private static String extraerNombreArchivo(String archivoUrl) {
+        int idx = archivoUrl.lastIndexOf('/');
+        return idx >= 0 ? archivoUrl.substring(idx + 1) : archivoUrl;
+    }
+
+    public record ArchivoTrabajo(Resource resource, String filename) {}
 }

@@ -2,9 +2,13 @@ package com.academconnect.controller;
 
 import java.util.List;
 
+import org.springframework.core.io.Resource;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -130,6 +134,16 @@ public class TrabajoController {
     public TrabajoResponse cerrar(@PathVariable Long id,
                                   org.springframework.security.core.Authentication authn) {
         return service.cerrar(id, currentUserId(authn));
+    }
+
+    @GetMapping("/{id}/archivo")
+    public ResponseEntity<Resource> descargarArchivo(@PathVariable Long id, Authentication authn) {
+        var res = service.descargarArchivo(id, authn);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "inline; filename=\"" + res.filename() + "\"")
+                .body(res.resource());
     }
 
     private Long currentUserId(org.springframework.security.core.Authentication authn) {

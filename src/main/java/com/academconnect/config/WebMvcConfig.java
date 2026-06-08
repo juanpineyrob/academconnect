@@ -8,9 +8,9 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 /**
- * Expone archivos estáticos del sistema (avatares de usuarios y PDFs de trabajos) bajo
- * prefijos públicos que coinciden con los valores persistidos en {@code Usuario.fotoUrl}
- * y {@code Trabajo.archivoUrl}.
+ * Expone los avatares como recurso estático bajo {@code /storage/avatars/**}.
+ * Los PDFs de trabajos NO se sirven aquí: se entregan vía
+ * {@code GET /api/trabajos/{id}/archivo}, que aplica reglas de acceso por estado y rol.
  */
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
@@ -21,20 +21,10 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Value("${academconnect.storage.avatars-public-prefix:/storage/avatars}")
     private String avatarsPublicPrefix;
 
-    @Value("${academconnect.storage.trabajos:./data/trabajos}")
-    private String trabajosRoot;
-
-    @Value("${academconnect.storage.trabajos-public-prefix:/storage/trabajos}")
-    private String trabajosPublicPrefix;
-
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler(avatarsPublicPrefix + "/**")
                 .addResourceLocations(toLocation(avatarsRoot))
-                .setCachePeriod(60);
-
-        registry.addResourceHandler(trabajosPublicPrefix + "/**")
-                .addResourceLocations(toLocation(trabajosRoot))
                 .setCachePeriod(60);
     }
 
