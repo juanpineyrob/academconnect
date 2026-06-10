@@ -43,6 +43,7 @@ public class SecurityConfig {
                                 "/storage/avatars/**",
                                 "/api/trabajos/buscar",
                                 "/api/trabajos/*/archivo",
+                                "/api/usuarios/*/perfil",
                                 "/api/usuarios/*/reconocimientos").permitAll()
                         .anyRequest().authenticated()
                 )
