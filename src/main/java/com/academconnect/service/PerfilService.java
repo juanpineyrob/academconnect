@@ -1,6 +1,5 @@
 package com.academconnect.service;
 
-import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -118,7 +117,7 @@ public class PerfilService {
                 u instanceof Externo e2 ? e2.getTitulo() : null,
                 toAreaResponses(u.getAreas()),
                 (int) publicados,
-                u.getCreatedAt() != null ? u.getCreatedAt().atOffset(ZoneOffset.UTC) : null);
+                u.getCreatedAt());
     }
 
     private PerfilResponse toPerfilResponse(Usuario u) {

@@ -1,6 +1,6 @@
 package com.academconnect.dto;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.List;
 
 public record PerfilPublicoResponse(
@@ -16,5 +16,5 @@ public record PerfilPublicoResponse(
         String titulo,
         List<UsuarioAreaTematicaResponse> areas,
         int trabajosPublicados,
-        OffsetDateTime createdAt) {
+        Instant createdAt) {
 }
