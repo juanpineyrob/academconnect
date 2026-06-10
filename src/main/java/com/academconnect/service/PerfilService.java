@@ -2,7 +2,6 @@ package com.academconnect.service;
 
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -19,6 +18,7 @@ import com.academconnect.dto.PerfilResponse;
 import com.academconnect.dto.PerfilUpdateRequest;
 import com.academconnect.dto.UsuarioAreaTematicaResponse;
 import com.academconnect.dto.UsuarioAreasRequest;
+import com.academconnect.exception.BusinessException;
 import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.repository.AreaTematicaRepository;
 import com.academconnect.repository.TrabajoRepository;
@@ -73,6 +73,10 @@ public class PerfilService {
         var usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario con email", email));
 
+        if (usuario instanceof Estudiante) {
+            throw new BusinessException("Las áreas del estudiante se derivan de sus trabajos aprobados y no pueden editarse manualmente.");
+        }
+
         usuario.getAreas().clear();
 
         request.areas().forEach(item -> {
@@ -115,7 +119,7 @@ public class PerfilService {
                 u instanceof Profesor p2 ? p2.getCargo() : null,
                 u instanceof Externo e ? e.getInstitucion() : null,
                 u instanceof Externo e2 ? e2.getTitulo() : null,
-                toAreaResponses(u.getAreas()),
+                computarAreas(u),
                 (int) publicados,
                 u.getCreatedAt());
     }
@@ -143,19 +147,22 @@ public class PerfilService {
                 u instanceof Profesor p2 ? p2.getCargo() : null,
                 u instanceof Externo e ? e.getInstitucion() : null,
                 u instanceof Externo e2 ? e2.getTitulo() : null,
-                toAreaResponseSet(u.getAreas()),
+                computarAreas(u),
                 publicados,
                 u.getCreatedAt(),
                 u.getUpdatedAt());
     }
 
-    private Set<UsuarioAreaTematicaResponse> toAreaResponseSet(Set<UsuarioAreaTematica> areas) {
-        return areas.stream()
+    private List<UsuarioAreaTematicaResponse> computarAreas(Usuario u) {
+        if (u instanceof Estudiante) {
+            return trabajoRepository.areasDerivadas(u.getId());
+        }
+        return u.getAreas().stream()
                 .map(uat -> new UsuarioAreaTematicaResponse(
                         uat.getArea().getId(),
                         uat.getArea().getNombre(),
                         uat.getNivelExperticia()))
-                .collect(Collectors.toSet());
+                .toList();
     }
 
     private List<UsuarioAreaTematicaResponse> toAreaResponses(Set<UsuarioAreaTematica> areas) {

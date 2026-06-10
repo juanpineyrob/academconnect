@@ -1,7 +1,7 @@
 package com.academconnect.dto;
 
 import java.time.Instant;
-import java.util.Set;
+import java.util.List;
 
 import com.academconnect.domain.Rol;
 
@@ -19,7 +19,7 @@ public record PerfilResponse(
         String cargo,
         String institucion,
         String titulo,
-        Set<UsuarioAreaTematicaResponse> areas,
+        List<UsuarioAreaTematicaResponse> areas,
         long trabajosPublicados,
         Instant createdAt,
         Instant updatedAt) {
