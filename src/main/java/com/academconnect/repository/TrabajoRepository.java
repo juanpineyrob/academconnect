@@ -10,6 +10,7 @@ import com.academconnect.domain.EstadoTrabajo;
 import com.academconnect.domain.TipoTrabajo;
 import com.academconnect.domain.Trabajo;
 import com.academconnect.dto.TrabajosPorEstadoDto;
+import com.academconnect.dto.UsuarioAreaTematicaResponse;
 
 public interface TrabajoRepository
         extends JpaRepository<Trabajo, Long>, JpaSpecificationExecutor<Trabajo> {
@@ -62,4 +63,28 @@ public interface TrabajoRepository
             @org.springframework.data.repository.query.Param("evaluadorId") Long evaluadorId);
 
     List<Trabajo> findByEstadoAndExpiraEnBefore(EstadoTrabajo estado, java.time.Instant fecha);
+
+    @Query("""
+            SELECT a.id, a.nombre
+            FROM Trabajo t
+            JOIN t.areas a
+            WHERE t.estado = com.academconnect.domain.EstadoTrabajo.APROBADO
+              AND t.estudiante.id = :usuarioId
+            GROUP BY a.id, a.nombre
+            ORDER BY COUNT(t) DESC, a.nombre ASC
+            """)
+    List<Object[]> areasDerivadasRaw(
+            @org.springframework.data.repository.query.Param("usuarioId") Long usuarioId);
+
+    /** Áreas temáticas del alumno, derivadas de sus trabajos APROBADO,
+     *  ordenadas por cantidad de trabajos (desc) y luego por nombre.
+     *  El campo nivelExperticia siempre es null (las áreas del alumno no tienen nivel). */
+    default List<UsuarioAreaTematicaResponse> areasDerivadas(Long usuarioId) {
+        return areasDerivadasRaw(usuarioId).stream()
+                .map(row -> new UsuarioAreaTematicaResponse(
+                        (Long) row[0],
+                        (String) row[1],
+                        null))
+                .toList();
+    }
 }
