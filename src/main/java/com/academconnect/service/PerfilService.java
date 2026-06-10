@@ -1,5 +1,6 @@
 package com.academconnect.service;
 
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -14,6 +15,7 @@ import com.academconnect.domain.Externo;
 import com.academconnect.domain.Profesor;
 import com.academconnect.domain.Usuario;
 import com.academconnect.domain.UsuarioAreaTematica;
+import com.academconnect.dto.PerfilPublicoResponse;
 import com.academconnect.dto.PerfilResponse;
 import com.academconnect.dto.PerfilUpdateRequest;
 import com.academconnect.dto.UsuarioAreaTematicaResponse;
@@ -82,6 +84,41 @@ public class PerfilService {
 
         usuarioRepository.save(usuario);
         return toAreaResponses(usuario.getAreas());
+    }
+
+    @Transactional(readOnly = true)
+    public PerfilPublicoResponse buscarPerfilPublico(Long id) {
+        var u = usuarioRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario", id));
+        if (!u.isActivo()) {
+            throw new ResourceNotFoundException("Usuario", id);
+        }
+        return toPerfilPublicoResponse(u);
+    }
+
+    private PerfilPublicoResponse toPerfilPublicoResponse(Usuario u) {
+        long publicados;
+        if (u instanceof Estudiante) {
+            publicados = trabajoRepository.countByEstudianteIdAndEstado(u.getId(), EstadoTrabajo.APROBADO);
+        } else if (u instanceof Profesor) {
+            publicados = trabajoRepository.countByOrientadorIdAndEstado(u.getId(), EstadoTrabajo.APROBADO);
+        } else {
+            publicados = 0L;
+        }
+        return new PerfilPublicoResponse(
+                u.getId(),
+                u.getNombre(),
+                u.getRol().name(),
+                u.getBiografia(),
+                u.getUbicacion(),
+                u.getFotoUrl(),
+                u instanceof Profesor p ? p.getTitulacion() : null,
+                u instanceof Profesor p2 ? p2.getCargo() : null,
+                u instanceof Externo e ? e.getInstitucion() : null,
+                u instanceof Externo e2 ? e2.getTitulo() : null,
+                toAreaResponses(u.getAreas()),
+                (int) publicados,
+                u.getCreatedAt() != null ? u.getCreatedAt().atOffset(ZoneOffset.UTC) : null);
     }
 
     private PerfilResponse toPerfilResponse(Usuario u) {
