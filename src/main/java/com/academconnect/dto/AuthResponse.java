@@ -7,5 +7,6 @@ public record AuthResponse(
         Long userId,
         String nombre,
         String email,
-        Rol rol) {
+        Rol rol,
+        String fotoUrl) {
 }

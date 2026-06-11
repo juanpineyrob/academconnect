@@ -74,7 +74,7 @@ public class AuthService {
 
     private AuthResponse buildResponse(Usuario usuario) {
         return new AuthResponse(generateToken(usuario), usuario.getId(), usuario.getNombre(),
-                usuario.getEmail(), usuario.getRol());
+                usuario.getEmail(), usuario.getRol(), usuario.getFotoUrl());
     }
 
     private String generateToken(Usuario usuario) {
