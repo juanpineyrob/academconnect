@@ -11,7 +11,11 @@ public interface VersionamientoRepository extends JpaRepository<Versionamiento, 
 
     List<Versionamiento> findByTrabajoIdOrderByNumeroVersionDesc(Long trabajoId);
 
+    List<Versionamiento> findByTrabajoIdAndDeletedAtIsNullOrderByNumeroVersionDesc(Long trabajoId);
+
     Optional<Versionamiento> findByTrabajoIdAndNumeroVersion(Long trabajoId, int numeroVersion);
 
     Optional<Versionamiento> findFirstByTrabajoIdOrderByNumeroVersionDesc(Long trabajoId);
+
+    long countByTrabajoIdAndDeletedAtIsNull(Long trabajoId);
 }

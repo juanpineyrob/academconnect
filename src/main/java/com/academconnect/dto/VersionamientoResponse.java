@@ -8,5 +8,10 @@ public record VersionamientoResponse(
         int numeroVersion,
         String comentario,
         DocumentoResponse documento,
-        Instant createdAt) {
+        Instant createdAt,
+        String createdBy,
+        Instant updatedAt,
+        String updatedBy,
+        Instant deletedAt,
+        String deletedBy) {
 }
