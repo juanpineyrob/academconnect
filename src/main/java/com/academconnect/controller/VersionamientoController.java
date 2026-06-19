@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -91,9 +92,13 @@ public class VersionamientoController {
 
     @GetMapping("/{versionId}/documento")
     @PreAuthorize("isAuthenticated()")
+    // Con OSIV desactivado y `documento` LAZY, hay que mantener la sesión abierta
+    // mientras se leen sus campos (storageKey, mimeType, etc.); si no, LazyInitializationException.
+    @Transactional(readOnly = true)
     public ResponseEntity<InputStreamResource> descargar(
             @PathVariable Long trabajoId,
-            @PathVariable Long versionId) throws IOException {
+            @PathVariable Long versionId,
+            @RequestParam(required = false, defaultValue = "false") boolean inline) throws IOException {
         var version = versionamientoRepository.findById(versionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Versionamiento", versionId));
         var doc = version.getDocumento();
@@ -102,12 +107,19 @@ public class VersionamientoController {
             throw new BusinessException("Archivo no encontrado en el almacenamiento");
         }
 
+        // Por defecto `attachment` (descarga; p. ej. el link "Descargar" de mis-trabajos).
+        // `?inline=true` permite incrustarlo en un visor embebido (pantalla de evaluar).
+        var disposition = (inline
+                ? ContentDisposition.inline()
+                : ContentDisposition.attachment())
+                .filename(doc.getNombreOriginal())
+                .build();
+
         var stream = documentoStorage.retrieve(doc.getStorageKey());
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType(doc.getMimeType()))
                 .contentLength(doc.getSizeBytes())
-                .header(HttpHeaders.CONTENT_DISPOSITION,
-                        ContentDisposition.attachment().filename(doc.getNombreOriginal()).build().toString())
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(new InputStreamResource(stream));
     }
 

@@ -2,6 +2,7 @@ package com.academconnect.config;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -35,6 +36,13 @@ public class SecurityConfig {
         http
                 .cors(c -> c.configurationSource(corsConfigurationSource()))
                 .csrf(AbstractHttpConfigurer::disable)
+                // El default `X-Frame-Options: DENY` impide incrustar respuestas (p. ej. el
+                // documento PDF en el <object> del visor de evaluaciones). Lo reemplazamos por
+                // una CSP `frame-ancestors` que solo habilita 'self' + el/los origen(es) del
+                // frontend (los mismos de CORS): el SPA puede incrustar, ningún tercero.
+                .headers(headers -> headers
+                        .frameOptions(frame -> frame.disable())
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(frameAncestorsPolicy())))
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/auth/**").permitAll()
@@ -55,6 +63,15 @@ public class SecurityConfig {
                         )
                 );
         return http.build();
+    }
+
+    /** `frame-ancestors 'self' <orígenes-frontend>`, derivado de los orígenes CORS permitidos. */
+    private String frameAncestorsPolicy() {
+        String origenes = Arrays.stream(corsAllowedOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .collect(Collectors.joining(" "));
+        return ("frame-ancestors 'self' " + origenes).trim();
     }
 
     @Bean
