@@ -46,23 +46,6 @@ public class TemplateEvaluacionService {
     private final ApplicationEventPublisher events;
     private final UsuarioRepository usuarioRepository;
 
-    public List<TemplateEvaluacionResponse> listar() {
-        return repository.findAll().stream().map(mapper::toResponse).toList();
-    }
-
-    public List<TemplateEvaluacionResponse> listarActivos() {
-        return repository.findAll().stream()
-                .filter(t -> t.isActivo())
-                .map(mapper::toResponse)
-                .toList();
-    }
-
-    public TemplateEvaluacionResponse buscarPorId(Long id) {
-        return repository.findById(id)
-                .map(mapper::toResponse)
-                .orElseThrow(() -> new ResourceNotFoundException("TemplateEvaluacion", id));
-    }
-
     public List<TemplateEvaluacionResponse> listarVisibles(Long callerId, boolean isAdmin) {
         return repository.findAll().stream()
                 .filter(t -> isAdmin || esVisiblePara(t, callerId))
