@@ -10,6 +10,8 @@ import org.mapstruct.MappingTarget;
 @Mapper(componentModel = "spring")
 public interface TemplateEvaluacionMapper {
 
+    @Mapping(target = "autorId", source = "autor.id")
+    @Mapping(target = "autorNombre", source = "autor.nombre")
     TemplateEvaluacionResponse toResponse(TemplateEvaluacion template);
 
     @Mapping(target = "id", ignore = true)
@@ -17,6 +19,9 @@ public interface TemplateEvaluacionMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "createdBy", ignore = true)
     @Mapping(target = "updatedBy", ignore = true)
+    @Mapping(target = "autor", ignore = true)
+    @Mapping(target = "scope", ignore = true)
+    @Mapping(target = "tipoTrabajoAplicable", ignore = true)
     TemplateEvaluacion toEntity(TemplateEvaluacionRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -24,5 +29,8 @@ public interface TemplateEvaluacionMapper {
     @Mapping(target = "updatedAt", ignore = true)
     @Mapping(target = "createdBy", ignore = true)
     @Mapping(target = "updatedBy", ignore = true)
+    @Mapping(target = "autor", ignore = true)
+    @Mapping(target = "scope", ignore = true)
+    @Mapping(target = "tipoTrabajoAplicable", ignore = true)
     void update(TemplateEvaluacionRequest request, @MappingTarget TemplateEvaluacion target);
 }
