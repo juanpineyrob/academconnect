@@ -13,6 +13,7 @@ import com.academconnect.exception.BusinessException;
 import com.academconnect.factories.UsuarioFactory;
 import com.academconnect.mapper.TrabajoMapper;
 import com.academconnect.repository.AreaTematicaRepository;
+import com.academconnect.repository.AsignacionRepository;
 import com.academconnect.repository.EstudianteRepository;
 import com.academconnect.repository.ProfesorRepository;
 import com.academconnect.repository.SolicitudVinculacionRepository;
@@ -46,6 +47,7 @@ class TrabajoServicePublicarTests {
     @Mock private EstudianteRepository estudianteRepository;
     @Mock private UsuarioRepository usuarioRepository;
     @Mock private AreaTematicaRepository areaTematicaRepository;
+    @Mock private AsignacionRepository asignacionRepository;
     @Mock private SolicitudVinculacionRepository solicitudRepository;
     @Mock private TrabajoMapper mapper;
     @Mock private ApplicationEventPublisher events;
@@ -141,5 +143,33 @@ class TrabajoServicePublicarTests {
     void cerrarFallaSiNoEstaAbierto() {
         borrador.setEstado(EstadoTrabajo.BORRADOR);
         Assertions.assertThrows(BusinessException.class, () -> service.cerrar(100L, 20L));
+    }
+
+    // ---- Overrides de administrador: ocultar / mostrar / eliminar ----
+
+    @Test
+    void ocultarSeteaOcultoTrueSinCambiarEstado() {
+        borrador.setEstado(EstadoTrabajo.APROBADO);
+        service.ocultar(100L);
+        Assertions.assertTrue(borrador.isOculto());
+        Assertions.assertEquals(EstadoTrabajo.APROBADO, borrador.getEstado());
+    }
+
+    @Test
+    void mostrarSeteaOcultoFalse() {
+        borrador.setOculto(true);
+        service.mostrar(100L);
+        Assertions.assertFalse(borrador.isOculto());
+    }
+
+    @Test
+    void eliminarBorraAsignacionesYLuegoElTrabajo() {
+        var asignacion = new com.academconnect.domain.Asignacion();
+        Mockito.when(asignacionRepository.findByTrabajoId(100L)).thenReturn(List.of(asignacion));
+
+        service.eliminar(100L);
+
+        Mockito.verify(asignacionRepository).deleteAllInBatch(List.of(asignacion));
+        Mockito.verify(trabajoRepository).delete(borrador);
     }
 }

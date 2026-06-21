@@ -19,6 +19,7 @@ import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.mapper.TrabajoMapper;
 import com.academconnect.dto.PublicarTrabajoRequest;
 import com.academconnect.repository.AreaTematicaRepository;
+import com.academconnect.repository.AsignacionRepository;
 import com.academconnect.repository.EstudianteRepository;
 import com.academconnect.repository.ProfesorRepository;
 import com.academconnect.repository.SolicitudVinculacionRepository;
@@ -55,6 +56,7 @@ public class TrabajoService {
     private final EstudianteRepository estudianteRepository;
     private final UsuarioRepository usuarioRepository;
     private final AreaTematicaRepository areaTematicaRepository;
+    private final AsignacionRepository asignacionRepository;
     private final SolicitudVinculacionRepository solicitudRepository;
     private final TrabajoMapper mapper;
     private final ApplicationEventPublisher events;
@@ -237,6 +239,7 @@ public class TrabajoService {
             Long orientadorId,
             Long estudianteId,
             boolean soloPublicos,
+            boolean incluirOcultos,
             Pageable pageable) {
 
         // Specification que matchea todo; los predicados se acumulan con and(...).
@@ -249,6 +252,11 @@ public class TrabajoService {
         } else if (orientadorId == null && estudianteId == null) {
             // Repositorio: sin filtro explícito de estado ni de participante, solo trabajos APROBADOS.
             spec = spec.and(TrabajoSpecs.estadoIgual(EstadoTrabajo.APROBADO));
+        }
+
+        // Los trabajos ocultados por moderación solo son visibles para administradores.
+        if (!incluirOcultos) {
+            spec = spec.and(TrabajoSpecs.noOculto());
         }
 
         if (q != null && !q.isBlank()) {
@@ -300,6 +308,43 @@ public class TrabajoService {
                         Map.of("titulo", t.getTitulo()),
                         VisibilidadActividad.PUBLICA,
                         participantesDe(t))));
+    }
+
+    /**
+     * Override de administrador (recuperación ante fallos): elimina físicamente un trabajo
+     * y todo su árbol. Las asignaciones tienen FK ON DELETE RESTRICT, así que se borran antes
+     * (sus evaluaciones y calificaciones caen por ON DELETE CASCADE); el resto de los hijos
+     * —versionamientos, solicitudes, invitaciones, sesiones, coorientadores, áreas,
+     * recomendaciones, conflictos— cae por ON DELETE CASCADE al borrar el trabajo.
+     */
+    @Transactional
+    public void eliminar(Long id) {
+        var trabajo = trabajoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Trabajo", id));
+        var asignaciones = asignacionRepository.findByTrabajoId(id);
+        if (!asignaciones.isEmpty()) {
+            asignacionRepository.deleteAllInBatch(asignaciones);
+        }
+        trabajoRepository.delete(trabajo);
+    }
+
+    /** Override de administrador: oculta el trabajo del repositorio público (reversible, preserva el estado). */
+    @Transactional
+    public TrabajoResponse ocultar(Long id) {
+        return setOculto(id, true);
+    }
+
+    /** Override de administrador: vuelve a mostrar un trabajo previamente ocultado. */
+    @Transactional
+    public TrabajoResponse mostrar(Long id) {
+        return setOculto(id, false);
+    }
+
+    private TrabajoResponse setOculto(Long id, boolean oculto) {
+        var trabajo = trabajoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Trabajo", id));
+        trabajo.setOculto(oculto);
+        return mapper.toResponse(trabajoRepository.save(trabajo));
     }
 
     @Transactional

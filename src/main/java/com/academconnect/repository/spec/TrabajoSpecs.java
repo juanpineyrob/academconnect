@@ -66,6 +66,11 @@ public final class TrabajoSpecs {
         return (root, cq, cb) -> root.get("estado").in(estados);
     }
 
+    /** Excluye trabajos ocultados por moderación de administrador (repositorio público). */
+    public static Specification<Trabajo> noOculto() {
+        return (root, cq, cb) -> cb.isFalse(root.get("oculto"));
+    }
+
     public static Specification<Trabajo> orientadorIgual(Long orientadorId) {
         if (orientadorId == null) return null;
         return (root, cq, cb) -> cb.equal(root.get("orientador").get("id"), orientadorId);

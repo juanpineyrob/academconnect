@@ -87,4 +87,8 @@ public class Trabajo extends BaseEntity {
 
     @Column(name = "expira_en")
     private Instant expiraEn;
+
+    /** Moderación de administrador: oculta el trabajo del repositorio público sin alterar su estado. */
+    @Column(nullable = false)
+    private boolean oculto = false;
 }

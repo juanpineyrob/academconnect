@@ -84,6 +84,23 @@ public class TrabajoBuscarSpecTests extends AbstractJpaTest {
         Assertions.assertTrue(ids.contains(t1.getId()));
     }
 
+    @Test
+    void noOcultoShouldExcludeHiddenTrabajos() {
+        Profesor prof = profesor("p4@x.com");
+        Trabajo visible = trabajo(prof, TipoTrabajo.TCC, EstadoTrabajo.APROBADO, "visible epsilon");
+        Trabajo oculto = trabajo(prof, TipoTrabajo.TCC, EstadoTrabajo.APROBADO, "oculto zeta");
+        oculto.setOculto(true);
+        trabajoRepository.saveAndFlush(oculto);
+
+        Specification<Trabajo> spec = ((Specification<Trabajo>) (root, cq, cb) -> cb.conjunction())
+                .and(TrabajoSpecs.noOculto());
+        Page<Trabajo> page = trabajoRepository.findAll(spec, PageRequest.of(0, 50));
+
+        List<Long> ids = page.getContent().stream().map(Trabajo::getId).toList();
+        Assertions.assertTrue(ids.contains(visible.getId()));
+        Assertions.assertFalse(ids.contains(oculto.getId()));
+    }
+
     private Profesor profesor(String email) {
         Profesor p = new Profesor();
         p.setEmail(email);

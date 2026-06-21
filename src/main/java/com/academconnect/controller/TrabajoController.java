@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -75,7 +76,11 @@ public class TrabajoController {
             Pageable pageable) {
         boolean soloPublicos = authentication == null || !authentication.isAuthenticated()
                 || "anonymousUser".equals(authentication.getPrincipal());
-        return service.buscar(q, areaId, anio, tipo, estado, orientadorId, estudianteId, soloPublicos, pageable);
+        // Solo el administrador puede ver trabajos ocultados por moderación.
+        boolean incluirOcultos = authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> "ROLE_ADMINISTRADOR".equals(a.getAuthority()));
+        return service.buscar(q, areaId, anio, tipo, estado, orientadorId, estudianteId,
+                soloPublicos, incluirOcultos, pageable);
     }
 
     @GetMapping("/{id}")
@@ -107,6 +112,25 @@ public class TrabajoController {
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public TrabajoResponse rechazar(@PathVariable Long id) {
         return service.rechazar(id);
+    }
+
+    @PostMapping("/{id}/ocultar")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public TrabajoResponse ocultar(@PathVariable Long id) {
+        return service.ocultar(id);
+    }
+
+    @PostMapping("/{id}/mostrar")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    public TrabajoResponse mostrar(@PathVariable Long id) {
+        return service.mostrar(id);
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMINISTRADOR')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void eliminar(@PathVariable Long id) {
+        service.eliminar(id);
     }
 
     @GetMapping("/{id}/solicitudes")
