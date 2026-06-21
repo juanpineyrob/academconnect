@@ -3,15 +3,15 @@ package com.academconnect.dto;
 import java.math.BigDecimal;
 import java.time.Instant;
 
-import com.academconnect.domain.TemplateScope;
-import com.academconnect.domain.TipoTrabajo;
+import com.academconnect.domain.Visibilidad;
 
 public record TemplateEvaluacionResponse(
         Long id,
         String nombre,
         String descripcion,
-        TemplateScope scope,
-        TipoTrabajo tipoTrabajoAplicable,
+        Visibilidad visibilidad,
+        Long autorId,
+        String autorNombre,
         String criterios,
         boolean activo,
         BigDecimal umbralAprobacion,
