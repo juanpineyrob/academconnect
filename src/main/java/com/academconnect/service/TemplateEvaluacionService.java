@@ -9,7 +9,9 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.academconnect.domain.TemplateEvaluacion;
 import com.academconnect.domain.TipoActividad;
+import com.academconnect.domain.Visibilidad;
 import com.academconnect.domain.VisibilidadActividad;
 import com.academconnect.dto.TemplateEvaluacionRequest;
 import com.academconnect.dto.TemplateEvaluacionResponse;
@@ -18,6 +20,7 @@ import com.academconnect.exception.BusinessException;
 import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.mapper.TemplateEvaluacionMapper;
 import com.academconnect.repository.TemplateEvaluacionRepository;
+import com.academconnect.repository.UsuarioRepository;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,6 +44,7 @@ public class TemplateEvaluacionService {
     private final TemplateEvaluacionRepository repository;
     private final TemplateEvaluacionMapper mapper;
     private final ApplicationEventPublisher events;
+    private final UsuarioRepository usuarioRepository;
 
     public List<TemplateEvaluacionResponse> listar() {
         return repository.findAll().stream().map(mapper::toResponse).toList();
@@ -59,37 +63,78 @@ public class TemplateEvaluacionService {
                 .orElseThrow(() -> new ResourceNotFoundException("TemplateEvaluacion", id));
     }
 
+    public List<TemplateEvaluacionResponse> listarVisibles(Long callerId, boolean isAdmin) {
+        return repository.findAll().stream()
+                .filter(t -> isAdmin || esVisiblePara(t, callerId))
+                .map(mapper::toResponse)
+                .toList();
+    }
+
+    public TemplateEvaluacionResponse buscarVisible(Long id, Long callerId, boolean isAdmin) {
+        var template = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("TemplateEvaluacion", id));
+        if (!isAdmin && !esVisiblePara(template, callerId)) {
+            throw new BusinessException("No tenés acceso a esta rúbrica");
+        }
+        return mapper.toResponse(template);
+    }
+
     @Transactional
-    public TemplateEvaluacionResponse crear(TemplateEvaluacionRequest request) {
+    public TemplateEvaluacionResponse crear(TemplateEvaluacionRequest request, Long autorId) {
         validar(request);
         var template = mapper.toEntity(request);
+        var autor = usuarioRepository.findById(autorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario", autorId));
+        template.setAutor(autor);
+        if (template.getVisibilidad() == null) {
+            template.setVisibilidad(Visibilidad.PRIVADO);
+        }
         var saved = repository.save(template);
         events.publishEvent(ActividadEvent.of(
                 TipoActividad.TEMPLATE_CREADO,
-                null, // sin autor identificado a este nivel (admin/profesor crea sin contexto auth aquí)
+                autorId,
                 "TEMPLATE_EVALUACION", saved.getId(),
                 Map.of("nombre", saved.getNombre(),
-                       "scope", saved.getScope().name()),
+                       "visibilidad", saved.getVisibilidad().name()),
                 VisibilidadActividad.PUBLICA,
                 List.of()));
         return mapper.toResponse(saved);
     }
 
     @Transactional
-    public TemplateEvaluacionResponse actualizar(Long id, TemplateEvaluacionRequest request) {
+    public TemplateEvaluacionResponse actualizar(Long id, TemplateEvaluacionRequest request, Long callerId, boolean isAdmin) {
         var template = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TemplateEvaluacion", id));
+        exigirPropietarioOAdmin(template, callerId, isAdmin);
         validar(request);
         mapper.update(request, template);
         return mapper.toResponse(repository.save(template));
     }
 
     @Transactional
-    public void desactivar(Long id) {
+    public void desactivar(Long id, Long callerId, boolean isAdmin) {
         var template = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("TemplateEvaluacion", id));
+        exigirPropietarioOAdmin(template, callerId, isAdmin);
         template.setActivo(false);
         repository.save(template);
+    }
+
+    private boolean esPropietario(TemplateEvaluacion template, Long callerId) {
+        return template.getAutor() != null
+                && template.getAutor().getId() != null
+                && template.getAutor().getId().equals(callerId);
+    }
+
+    private boolean esVisiblePara(TemplateEvaluacion template, Long callerId) {
+        return esPropietario(template, callerId)
+                || (template.getVisibilidad() == Visibilidad.PUBLICO && template.isActivo());
+    }
+
+    private void exigirPropietarioOAdmin(TemplateEvaluacion template, Long callerId, boolean isAdmin) {
+        if (!isAdmin && !esPropietario(template, callerId)) {
+            throw new BusinessException("Solo el autor o un administrador puede modificar esta rúbrica");
+        }
     }
 
     private void validar(TemplateEvaluacionRequest request) {

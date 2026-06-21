@@ -44,7 +44,8 @@ public class TemplateEvaluacionController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public TemplateEvaluacionResponse crear(@Valid @RequestBody TemplateEvaluacionRequest request) {
-        return service.crear(request);
+        // TODO(B4): resolver autorId desde el usuario autenticado.
+        return service.crear(request, null);
     }
 
     @PutMapping("/{id}")
@@ -52,13 +53,15 @@ public class TemplateEvaluacionController {
     public TemplateEvaluacionResponse actualizar(
             @PathVariable Long id,
             @Valid @RequestBody TemplateEvaluacionRequest request) {
-        return service.actualizar(id, request);
+        // TODO(B4): resolver callerId/isAdmin desde el contexto de seguridad.
+        return service.actualizar(id, request, null, true);
     }
 
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public void desactivar(@PathVariable Long id) {
-        service.desactivar(id);
+        // TODO(B4): resolver callerId/isAdmin desde el contexto de seguridad.
+        service.desactivar(id, null, true);
     }
 }

@@ -1,6 +1,8 @@
 package com.academconnect.service;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Optional;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,13 +17,14 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import com.academconnect.domain.TemplateEvaluacion;
-import com.academconnect.domain.TemplateScope;
-import com.academconnect.domain.TipoTrabajo;
+import com.academconnect.domain.Usuario;
+import com.academconnect.domain.Visibilidad;
 import com.academconnect.dto.TemplateEvaluacionRequest;
 import com.academconnect.dto.TemplateEvaluacionResponse;
 import com.academconnect.exception.BusinessException;
 import com.academconnect.mapper.TemplateEvaluacionMapper;
 import com.academconnect.repository.TemplateEvaluacionRepository;
+import com.academconnect.repository.UsuarioRepository;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -46,6 +49,9 @@ public class TemplateEvaluacionServiceTests {
     @Mock
     private ApplicationEventPublisher events;
 
+    @Mock
+    private UsuarioRepository usuarioRepository;
+
     private TemplateEvaluacion templateEntity;
     private TemplateEvaluacionResponse templateResponse;
 
@@ -53,22 +59,24 @@ public class TemplateEvaluacionServiceTests {
     void setup() {
         templateEntity = new TemplateEvaluacion();
         templateEntity.setNombre("Template TCC");
-        templateEntity.setScope(TemplateScope.INSTITUCIONAL);
+        templateEntity.setVisibilidad(Visibilidad.PRIVADO);
 
         templateResponse = new TemplateEvaluacionResponse(
-                1L, "Template TCC", null, TemplateScope.INSTITUCIONAL, TipoTrabajo.TCC,
+                1L, "Template TCC", null, Visibilidad.PRIVADO, 7L, "Autor",
                 CRITERIOS_OK, true, new BigDecimal("6.00"), null, null);
 
         Mockito.when(mapper.toEntity(Mockito.any())).thenReturn(templateEntity);
         Mockito.when(repository.save(Mockito.any())).thenAnswer(i -> i.getArgument(0));
         Mockito.when(mapper.toResponse(Mockito.any())).thenReturn(templateResponse);
+        Mockito.when(usuarioRepository.findById(Mockito.anyLong()))
+                .thenReturn(Optional.of(Mockito.mock(Usuario.class)));
     }
 
     @Test
     void crearShouldReturnResponseWhenCriteriosAndUmbralAreValid() {
         TemplateEvaluacionRequest request = buildRequest(CRITERIOS_OK, new BigDecimal("6.0"));
 
-        Assertions.assertDoesNotThrow(() -> service.crear(request));
+        Assertions.assertDoesNotThrow(() -> service.crear(request, 7L));
     }
 
     @Test
@@ -79,7 +87,7 @@ public class TemplateEvaluacionServiceTests {
                 ]
                 """;
         Throwable ex = Assertions.assertThrows(BusinessException.class,
-                () -> service.crear(buildRequest(sinTipo, new BigDecimal("5.0"))));
+                () -> service.crear(buildRequest(sinTipo, new BigDecimal("5.0")), 7L));
         Assertions.assertTrue(ex.getMessage().contains("tipo"));
     }
 
@@ -91,7 +99,7 @@ public class TemplateEvaluacionServiceTests {
                 ]
                 """;
         Throwable ex = Assertions.assertThrows(BusinessException.class,
-                () -> service.crear(buildRequest(tipoInvalido, new BigDecimal("5.0"))));
+                () -> service.crear(buildRequest(tipoInvalido, new BigDecimal("5.0")), 7L));
         Assertions.assertTrue(ex.getMessage().contains("Tipo de criterio inválido"));
     }
 
@@ -103,7 +111,7 @@ public class TemplateEvaluacionServiceTests {
                 ]
                 """;
         Throwable ex = Assertions.assertThrows(BusinessException.class,
-                () -> service.crear(buildRequest(seleccionSinOpciones, new BigDecimal("5.0"))));
+                () -> service.crear(buildRequest(seleccionSinOpciones, new BigDecimal("5.0")), 7L));
         Assertions.assertTrue(ex.getMessage().contains("opciones"));
     }
 
@@ -116,7 +124,7 @@ public class TemplateEvaluacionServiceTests {
                 ]
                 """;
         Assertions.assertDoesNotThrow(
-                () -> service.crear(buildRequest(seleccionOk, new BigDecimal("2.0"))));
+                () -> service.crear(buildRequest(seleccionOk, new BigDecimal("2.0")), 7L));
     }
 
     @Test
@@ -128,20 +136,20 @@ public class TemplateEvaluacionServiceTests {
                 ]
                 """;
         Throwable ex = Assertions.assertThrows(BusinessException.class,
-                () -> service.crear(buildRequest(textoPonderado, new BigDecimal("5.0"))));
+                () -> service.crear(buildRequest(textoPonderado, new BigDecimal("5.0")), 7L));
         Assertions.assertTrue(ex.getMessage().contains("TEXTO"));
     }
 
     @Test
     void crearShouldThrowBusinessExceptionWhenUmbralIsOutOfRange() {
         Assertions.assertThrows(BusinessException.class,
-                () -> service.crear(buildRequest(CRITERIOS_OK, new BigDecimal("11.0"))));
+                () -> service.crear(buildRequest(CRITERIOS_OK, new BigDecimal("11.0")), 7L));
     }
 
     @Test
     void crearShouldThrowBusinessExceptionWhenUmbralIsNegative() {
         Assertions.assertThrows(BusinessException.class,
-                () -> service.crear(buildRequest(CRITERIOS_OK, new BigDecimal("-1.0"))));
+                () -> service.crear(buildRequest(CRITERIOS_OK, new BigDecimal("-1.0")), 7L));
     }
 
     @Test
@@ -153,13 +161,139 @@ public class TemplateEvaluacionServiceTests {
                 ]
                 """;
         Throwable ex = Assertions.assertThrows(BusinessException.class,
-                () -> service.crear(buildRequest(pesosMal, new BigDecimal("5.0"))));
+                () -> service.crear(buildRequest(pesosMal, new BigDecimal("5.0")), 7L));
         Assertions.assertTrue(ex.getMessage().contains("suma"));
+    }
+
+    @Test
+    void actualizarShouldThrowWhenCallerIsNotOwnerNorAdmin() {
+        var autor = Mockito.mock(Usuario.class);
+        Mockito.when(autor.getId()).thenReturn(7L);
+        templateEntity.setAutor(autor);
+        Mockito.when(repository.findById(1L)).thenReturn(Optional.of(templateEntity));
+
+        Assertions.assertThrows(BusinessException.class,
+                () -> service.actualizar(1L, buildRequest(CRITERIOS_OK, new BigDecimal("6.0")), 99L, false));
+    }
+
+    @Test
+    void actualizarShouldSucceedWhenCallerIsOwner() {
+        var autor = Mockito.mock(Usuario.class);
+        Mockito.when(autor.getId()).thenReturn(7L);
+        templateEntity.setAutor(autor);
+        Mockito.when(repository.findById(1L)).thenReturn(Optional.of(templateEntity));
+
+        Assertions.assertDoesNotThrow(
+                () -> service.actualizar(1L, buildRequest(CRITERIOS_OK, new BigDecimal("6.0")), 7L, false));
+    }
+
+    @Test
+    void actualizarShouldSucceedWhenCallerIsAdminEvenIfNotOwner() {
+        var autor = Mockito.mock(Usuario.class);
+        Mockito.when(autor.getId()).thenReturn(7L);
+        templateEntity.setAutor(autor);
+        Mockito.when(repository.findById(1L)).thenReturn(Optional.of(templateEntity));
+
+        Assertions.assertDoesNotThrow(
+                () -> service.actualizar(1L, buildRequest(CRITERIOS_OK, new BigDecimal("6.0")), 99L, true));
+    }
+
+    @Test
+    void desactivarShouldThrowWhenCallerIsNotOwnerNorAdmin() {
+        var autor = Mockito.mock(Usuario.class);
+        Mockito.when(autor.getId()).thenReturn(7L);
+        templateEntity.setAutor(autor);
+        Mockito.when(repository.findById(1L)).thenReturn(Optional.of(templateEntity));
+
+        Assertions.assertThrows(BusinessException.class,
+                () -> service.desactivar(1L, 99L, false));
+    }
+
+    @Test
+    void desactivarShouldSucceedWhenCallerIsOwner() {
+        var autor = Mockito.mock(Usuario.class);
+        Mockito.when(autor.getId()).thenReturn(7L);
+        templateEntity.setAutor(autor);
+        Mockito.when(repository.findById(1L)).thenReturn(Optional.of(templateEntity));
+
+        Assertions.assertDoesNotThrow(() -> service.desactivar(1L, 7L, false));
+    }
+
+    @Test
+    void listarVisiblesShouldReturnOwnAndPublicOfOthersForNonAdmin() {
+        var propia = new TemplateEvaluacion();
+        var autorPropia = Mockito.mock(Usuario.class);
+        Mockito.when(autorPropia.getId()).thenReturn(7L);
+        propia.setAutor(autorPropia);
+        propia.setVisibilidad(Visibilidad.PRIVADO);
+        propia.setActivo(true);
+
+        var ajenaPublica = new TemplateEvaluacion();
+        var autorAjeno = Mockito.mock(Usuario.class);
+        Mockito.when(autorAjeno.getId()).thenReturn(8L);
+        ajenaPublica.setAutor(autorAjeno);
+        ajenaPublica.setVisibilidad(Visibilidad.PUBLICO);
+        ajenaPublica.setActivo(true);
+
+        var ajenaPrivada = new TemplateEvaluacion();
+        var autorAjeno2 = Mockito.mock(Usuario.class);
+        Mockito.when(autorAjeno2.getId()).thenReturn(9L);
+        ajenaPrivada.setAutor(autorAjeno2);
+        ajenaPrivada.setVisibilidad(Visibilidad.PRIVADO);
+        ajenaPrivada.setActivo(true);
+
+        Mockito.when(repository.findAll()).thenReturn(List.of(propia, ajenaPublica, ajenaPrivada));
+
+        var res = service.listarVisibles(7L, false);
+        Assertions.assertEquals(2, res.size()); // propia + ajena pública, NO la ajena privada
+    }
+
+    @Test
+    void listarVisiblesShouldReturnAllForAdmin() {
+        var propia = new TemplateEvaluacion();
+        var autorPropia = Mockito.mock(Usuario.class);
+        propia.setAutor(autorPropia);
+        propia.setVisibilidad(Visibilidad.PRIVADO);
+        propia.setActivo(true);
+
+        var ajenaPrivada = new TemplateEvaluacion();
+        var autorAjeno = Mockito.mock(Usuario.class);
+        ajenaPrivada.setAutor(autorAjeno);
+        ajenaPrivada.setVisibilidad(Visibilidad.PRIVADO);
+        ajenaPrivada.setActivo(true);
+
+        Mockito.when(repository.findAll()).thenReturn(List.of(propia, ajenaPrivada));
+
+        var res = service.listarVisibles(7L, true);
+        Assertions.assertEquals(2, res.size());
+    }
+
+    @Test
+    void buscarVisibleShouldThrowWhenNotVisibleForNonAdmin() {
+        var autor = Mockito.mock(Usuario.class);
+        Mockito.when(autor.getId()).thenReturn(8L);
+        templateEntity.setAutor(autor);
+        templateEntity.setVisibilidad(Visibilidad.PRIVADO);
+        Mockito.when(repository.findById(1L)).thenReturn(Optional.of(templateEntity));
+
+        Assertions.assertThrows(BusinessException.class,
+                () -> service.buscarVisible(1L, 7L, false));
+    }
+
+    @Test
+    void buscarVisibleShouldSucceedForOwner() {
+        var autor = Mockito.mock(Usuario.class);
+        Mockito.when(autor.getId()).thenReturn(7L);
+        templateEntity.setAutor(autor);
+        templateEntity.setVisibilidad(Visibilidad.PRIVADO);
+        Mockito.when(repository.findById(1L)).thenReturn(Optional.of(templateEntity));
+
+        Assertions.assertDoesNotThrow(() -> service.buscarVisible(1L, 7L, false));
     }
 
     private static TemplateEvaluacionRequest buildRequest(String criterios, BigDecimal umbral) {
         return new TemplateEvaluacionRequest(
-                "Template", null, TemplateScope.INSTITUCIONAL, TipoTrabajo.TCC,
+                "Template", null, Visibilidad.PRIVADO,
                 criterios, true, umbral);
     }
 }
