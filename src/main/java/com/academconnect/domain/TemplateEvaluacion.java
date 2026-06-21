@@ -9,6 +9,9 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -28,8 +31,16 @@ public class TemplateEvaluacion extends BaseEntity {
     private String descripcion;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 40)
-    private TemplateScope scope;
+    @Column(length = 40)
+    private TemplateScope scope; // DEPRECADO: las rúbricas son generales
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private Visibilidad visibilidad = Visibilidad.PRIVADO;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "autor_id")
+    private Usuario autor;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "tipo_trabajo_aplicable", length = 40)
