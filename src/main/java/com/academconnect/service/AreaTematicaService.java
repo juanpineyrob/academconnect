@@ -1,6 +1,9 @@
 package com.academconnect.service;
 
+import com.academconnect.domain.AreaTematica;
+import com.academconnect.dto.AreaTematicaRequest;
 import com.academconnect.dto.AreaTematicaResponse;
+import com.academconnect.exception.BusinessException;
 import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.mapper.AreaTematicaMapper;
 import com.academconnect.repository.AreaTematicaRepository;
@@ -29,5 +32,54 @@ public class AreaTematicaService {
         return repository.findById(id)
                 .map(mapper::toResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("AreaTematica", id));
+    }
+
+    /** Administración: todas las áreas, incluidas las inactivas. */
+    public List<AreaTematicaResponse> listarTodas() {
+        return repository.findAll().stream()
+                .sorted((a, b) -> a.getNombre().compareToIgnoreCase(b.getNombre()))
+                .map(mapper::toResponse)
+                .toList();
+    }
+
+    @Transactional
+    public AreaTematicaResponse crear(AreaTematicaRequest request) {
+        var area = new AreaTematica();
+        aplicar(area, request);
+        return mapper.toResponse(repository.save(area));
+    }
+
+    @Transactional
+    public AreaTematicaResponse actualizar(Long id, AreaTematicaRequest request) {
+        var area = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("AreaTematica", id));
+        aplicar(area, request);
+        return mapper.toResponse(repository.save(area));
+    }
+
+    /** Borrado lógico/reactivación: las áreas se referencian desde trabajos y perfiles (FK RESTRICT). */
+    @Transactional
+    public AreaTematicaResponse setActivo(Long id, boolean activo) {
+        var area = repository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("AreaTematica", id));
+        area.setActivo(activo);
+        return mapper.toResponse(repository.save(area));
+    }
+
+    private void aplicar(AreaTematica area, AreaTematicaRequest request) {
+        area.setNombre(request.nombre().trim());
+        var codigo = request.codigoExterno();
+        area.setCodigoExterno(codigo == null || codigo.isBlank() ? null : codigo.trim());
+        area.setThesaurusOrigen(request.thesaurusOrigen());
+        if (request.parentId() != null) {
+            if (request.parentId().equals(area.getId())) {
+                throw new BusinessException("Un área no puede ser su propio padre");
+            }
+            var parent = repository.findById(request.parentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("AreaTematica padre", request.parentId()));
+            area.setParent(parent);
+        } else {
+            area.setParent(null);
+        }
     }
 }
