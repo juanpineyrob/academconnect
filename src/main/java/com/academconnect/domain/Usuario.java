@@ -26,6 +26,10 @@ public abstract class Usuario extends BaseEntity {
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 
+    /** Matrícula institucional: identificador del proceso de solicitud de cuenta y de búsqueda. */
+    @Column(unique = true, length = 30)
+    private String matricula;
+
     @Column(nullable = false, length = 255)
     private String password;
 
