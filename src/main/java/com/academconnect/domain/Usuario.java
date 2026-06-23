@@ -8,6 +8,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorColumn;
 import jakarta.persistence.DiscriminatorType;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
 import jakarta.persistence.OneToMany;
@@ -30,7 +32,8 @@ public abstract class Usuario extends BaseEntity {
     @Column(unique = true, length = 30)
     private String matricula;
 
-    @Column(nullable = false, length = 255)
+    /** Nullable: las cuentas INVITADA no tienen contraseña hasta activarse por token. */
+    @Column(length = 255)
     private String password;
 
     @Column(nullable = false, length = 200)
@@ -38,6 +41,11 @@ public abstract class Usuario extends BaseEntity {
 
     @Column(nullable = false)
     private boolean activo = true;
+
+    /** Ciclo de vida de la credencial, ortogonal a {@link #activo} (suspensión admin). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado_cuenta", nullable = false, length = 20)
+    private EstadoCuenta estadoCuenta = EstadoCuenta.ACTIVA;
 
     private Integer edad;
 
