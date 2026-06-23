@@ -92,6 +92,15 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ProblemDetail handleAccessDenied(org.springframework.security.access.AccessDeniedException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN,
+                "No tenés permisos para esta operación");
+        pd.setTitle("Acceso denegado");
+        pd.setType(URI.create("urn:academconnect:error:access-denied"));
+        return pd;
+    }
+
     @ExceptionHandler(Exception.class)
     public ProblemDetail handleGeneric(Exception ex) {
         log.error("Unhandled exception", ex);
