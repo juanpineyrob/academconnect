@@ -15,10 +15,15 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Pageable;
+
 import com.academconnect.TestcontainersConfiguration;
 import com.academconnect.domain.EstadoCuenta;
+import com.academconnect.domain.EstadoMail;
 import com.academconnect.domain.PropositoToken;
 import com.academconnect.dto.EstudianteRequest;
+import com.academconnect.repository.MailPendienteRepository;
+import com.academconnect.repository.SolicitudCuentaRepository;
 import com.academconnect.repository.UsuarioRepository;
 import com.academconnect.service.EstudianteService;
 import com.academconnect.service.TokenCuentaService;
@@ -34,6 +39,8 @@ class OnboardingControllerTests {
     @Autowired private TokenCuentaService tokenService;
     @Autowired private UsuarioRepository usuarioRepository;
     @Autowired private EstudianteService estudianteService;
+    @Autowired private SolicitudCuentaRepository solicitudRepository;
+    @Autowired private MailPendienteRepository mailRepo;
 
     private Long crearInvitada(String email) {
         var resp = estudianteService.crear(new EstudianteRequest(email, "x".repeat(8), "Inv", null, null, null));
@@ -87,5 +94,38 @@ class OnboardingControllerTests {
                 .content("{\"token\":\"no-existe\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.valido").value(false));
+    }
+
+    @Test
+    void solicitarCuentaDevuelve202GenericoYPersiste() throws Exception {
+        mockMvc.perform(post("/auth/solicitudes").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"matricula\":\"2024001\",\"email\":\"nuevo@academ.test\",\"nombre\":\"Nuevo\"}"))
+            .andExpect(status().isAccepted());
+        assertThat(solicitudRepository.findAll()).anyMatch(s -> s.getMatricula().equals("2024001"));
+    }
+
+    @Test
+    void recuperarSiempreDevuelve202AunqueElEmailNoExista() throws Exception {
+        mockMvc.perform(post("/auth/password/recuperar").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"fantasma@academ.test\"}"))
+            .andExpect(status().isAccepted());
+    }
+
+    @Test
+    void recuperarEncolaMailYTokenResetParaCuentaActiva() throws Exception {
+        estudianteService.crear(new EstudianteRequest("activa2@academ.test", "x".repeat(8), "A", null, null, null));
+        mockMvc.perform(post("/auth/password/recuperar").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"activa2@academ.test\"}"))
+            .andExpect(status().isAccepted());
+        assertThat(mailRepo.findByEstadoOrderByCreatedAtAsc(EstadoMail.PENDIENTE, Pageable.ofSize(10))).hasSize(1);
+    }
+
+    @Test
+    void reenviarActivacionEncolaMailParaCuentaInvitada() throws Exception {
+        crearInvitada("inv-reenviar@academ.test");
+        mockMvc.perform(post("/auth/activacion/reenviar").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"email\":\"inv-reenviar@academ.test\"}"))
+            .andExpect(status().isAccepted());
+        assertThat(mailRepo.findByEstadoOrderByCreatedAtAsc(EstadoMail.PENDIENTE, Pageable.ofSize(10))).hasSize(1);
     }
 }
