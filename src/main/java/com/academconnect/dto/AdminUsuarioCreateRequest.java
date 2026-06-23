@@ -14,7 +14,6 @@ public record AdminUsuarioCreateRequest(
         @NotNull Rol rol,
         @NotBlank @Email @Size(max = 255) String email,
         @NotBlank @Size(max = 30) String matricula,
-        @NotBlank @Size(min = 8, max = 255) String password,
         @NotBlank @Size(max = 200) String nombre,
         Integer edad,
         @Size(max = 200) String ubicacion,

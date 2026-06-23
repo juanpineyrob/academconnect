@@ -13,14 +13,16 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 import com.academconnect.domain.Administrador;
+import com.academconnect.domain.EstadoCuenta;
 import com.academconnect.domain.Estudiante;
 import com.academconnect.domain.Externo;
 import com.academconnect.domain.Profesor;
+import com.academconnect.domain.PropositoToken;
 import com.academconnect.domain.Rol;
 import com.academconnect.domain.Usuario;
 import com.academconnect.dto.AdminUsuarioCreateRequest;
@@ -33,29 +35,36 @@ class AdminUsuarioServiceTests {
 
     @InjectMocks private AdminUsuarioService service;
     @Mock private com.academconnect.repository.UsuarioRepository repository;
-    @Mock private PasswordEncoder passwordEncoder;
+    @Mock private TokenCuentaService tokenService;
+    @Mock private MailService mailService;
+    @Mock private MailTemplateService templates;
+    @Mock private ApplicationEventPublisher eventos;
 
     @BeforeEach
     void setup() {
         Mockito.when(repository.save(Mockito.any())).thenAnswer(i -> i.getArgument(0));
-        Mockito.when(passwordEncoder.encode(Mockito.any())).thenAnswer(i -> "hashed:" + i.getArgument(0));
+        Mockito.when(templates.activacion(Mockito.any(), Mockito.any()))
+                .thenReturn(new MailTemplateService.MailContenido("asunto", "<p>html</p>", "texto"));
     }
 
     private AdminUsuarioCreateRequest crearReq(Rol rol, String email, String institucion, String titulo) {
-        return new AdminUsuarioCreateRequest(rol, email, "MAT-" + email, "password123", "Nombre", 30, "Montevideo",
+        return new AdminUsuarioCreateRequest(rol, email, "MAT-" + email, "Nombre", 30, "Montevideo",
                 "Doctorado", "Titular", institucion, titulo);
     }
 
     @Test
-    void crearEstudianteHasheaPasswordYActiva() {
+    void crearEstudianteCreaInvitadaSinPasswordYEncolaActivacion() {
         var resp = service.crear(crearReq(Rol.ESTUDIANTE, "e@x.uy", null, null));
         ArgumentCaptor<Usuario> cap = ArgumentCaptor.forClass(Usuario.class);
         Mockito.verify(repository).save(cap.capture());
         Assertions.assertInstanceOf(Estudiante.class, cap.getValue());
-        Assertions.assertEquals("hashed:password123", cap.getValue().getPassword());
+        Assertions.assertNull(cap.getValue().getPassword());
+        Assertions.assertEquals(EstadoCuenta.INVITADA, cap.getValue().getEstadoCuenta());
         Assertions.assertTrue(cap.getValue().isActivo());
         Assertions.assertEquals("e@x.uy", cap.getValue().getEmail());
         Assertions.assertEquals(Rol.ESTUDIANTE, resp.rol());
+        Mockito.verify(tokenService).emitir(Mockito.any(), Mockito.eq(PropositoToken.ACTIVACION));
+        Mockito.verify(mailService).encolar(Mockito.eq("e@x.uy"), Mockito.any(), Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -174,11 +183,34 @@ class AdminUsuarioServiceTests {
     }
 
     @Test
-    void resetPasswordHashea() {
+    void enviarEnlacePasswordParaCuentaActivaEmiteResetYEncolaMail() {
         Estudiante u = new Estudiante();
         u.setId(5L);
+        u.setEmail("activa@x.uy");
+        u.setNombre("Activa");
+        u.setEstadoCuenta(EstadoCuenta.ACTIVA);
         Mockito.when(repository.findById(5L)).thenReturn(Optional.of(u));
-        service.resetPassword(5L, "nuevaClave1");
-        Assertions.assertEquals("hashed:nuevaClave1", u.getPassword());
+        Mockito.when(templates.restablecer(Mockito.any(), Mockito.any()))
+                .thenReturn(new MailTemplateService.MailContenido("asunto", "<p>html</p>", "texto"));
+
+        service.enviarEnlacePassword(5L);
+
+        Mockito.verify(tokenService).emitir(Mockito.eq(5L), Mockito.eq(PropositoToken.RESET));
+        Mockito.verify(mailService).encolar(Mockito.eq("activa@x.uy"), Mockito.any(), Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void enviarEnlacePasswordParaCuentaInvitadaEmiteActivacion() {
+        Estudiante u = new Estudiante();
+        u.setId(6L);
+        u.setEmail("invitada@x.uy");
+        u.setNombre("Invitada");
+        u.setEstadoCuenta(EstadoCuenta.INVITADA);
+        Mockito.when(repository.findById(6L)).thenReturn(Optional.of(u));
+
+        service.enviarEnlacePassword(6L);
+
+        Mockito.verify(tokenService).emitir(Mockito.eq(6L), Mockito.eq(PropositoToken.ACTIVACION));
+        Mockito.verify(mailService).encolar(Mockito.eq("invitada@x.uy"), Mockito.any(), Mockito.any(), Mockito.any());
     }
 }

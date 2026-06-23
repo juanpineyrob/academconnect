@@ -1,20 +1,28 @@
 package com.academconnect.service;
 
+import java.util.List;
+import java.util.Map;
+
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.academconnect.domain.Administrador;
+import com.academconnect.domain.EstadoCuenta;
 import com.academconnect.domain.Estudiante;
 import com.academconnect.domain.Externo;
 import com.academconnect.domain.Profesor;
+import com.academconnect.domain.PropositoToken;
 import com.academconnect.domain.Rol;
+import com.academconnect.domain.TipoActividad;
 import com.academconnect.domain.Usuario;
+import com.academconnect.domain.VisibilidadActividad;
 import com.academconnect.dto.AdminUsuarioCreateRequest;
 import com.academconnect.dto.AdminUsuarioResponse;
 import com.academconnect.dto.AdminUsuarioUpdateRequest;
+import com.academconnect.event.ActividadEvent;
 import com.academconnect.exception.BusinessException;
 import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.repository.UsuarioRepository;
@@ -27,7 +35,10 @@ import lombok.RequiredArgsConstructor;
 public class AdminUsuarioService {
 
     private final UsuarioRepository repository;
-    private final PasswordEncoder passwordEncoder;
+    private final TokenCuentaService tokenService;
+    private final MailService mailService;
+    private final MailTemplateService templates;
+    private final ApplicationEventPublisher eventos;
 
     public Page<AdminUsuarioResponse> buscar(String q, Rol rol, Pageable pageable) {
         String patron = (q == null || q.isBlank()) ? null : "%" + q.trim().toLowerCase() + "%";
@@ -80,9 +91,19 @@ public class AdminUsuarioService {
         u.setNombre(req.nombre().trim());
         u.setEdad(req.edad());
         u.setUbicacion(trimToNull(req.ubicacion()));
-        u.setPassword(passwordEncoder.encode(req.password()));
         u.setActivo(true);
-        return toResponse(repository.save(u));
+        u.setEstadoCuenta(EstadoCuenta.INVITADA);
+        u.setPassword(null);
+        Usuario guardado = repository.save(u);
+
+        String token = tokenService.emitir(guardado.getId(), PropositoToken.ACTIVACION);
+        var c = templates.activacion(guardado.getNombre(), token);
+        mailService.encolar(guardado.getEmail(), c.asunto(), c.html(), c.texto());
+
+        eventos.publishEvent(ActividadEvent.of(TipoActividad.CUENTA_INVITADA_CREADA, null,
+                "USUARIO", guardado.getId(), Map.of("matricula", guardado.getMatricula()),
+                VisibilidadActividad.PRIVADA, List.of()));
+        return toResponse(guardado);
     }
 
     @Transactional
@@ -134,12 +155,26 @@ public class AdminUsuarioService {
         return toResponse(repository.save(u));
     }
 
+    /**
+     * Envía al usuario un enlace para establecer su contraseña. Emite RESET si la cuenta está ACTIVA
+     * o ACTIVACION si todavía está INVITADA; encola el mail correspondiente. El admin nunca fija
+     * contraseñas: la única ancla de identidad es el control del correo institucional.
+     */
     @Transactional
-    public void resetPassword(Long id, String nuevaPassword) {
+    public void enviarEnlacePassword(Long id) {
         Usuario u = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", id));
-        u.setPassword(passwordEncoder.encode(nuevaPassword));
-        repository.save(u);
+        PropositoToken proposito = (u.getEstadoCuenta() == EstadoCuenta.ACTIVA)
+                ? PropositoToken.RESET
+                : PropositoToken.ACTIVACION;
+        String token = tokenService.emitir(u.getId(), proposito);
+        var c = (proposito == PropositoToken.RESET)
+                ? templates.restablecer(u.getNombre(), token)
+                : templates.activacion(u.getNombre(), token);
+        mailService.encolar(u.getEmail(), c.asunto(), c.html(), c.texto());
+        eventos.publishEvent(ActividadEvent.of(TipoActividad.ENLACE_PASSWORD_ENVIADO, null,
+                "USUARIO", u.getId(), Map.of("proposito", proposito.name()),
+                VisibilidadActividad.PRIVADA, List.of()));
     }
 
     private AdminUsuarioResponse toResponse(Usuario u) {
