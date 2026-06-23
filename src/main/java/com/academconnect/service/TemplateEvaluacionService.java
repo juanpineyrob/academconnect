@@ -6,6 +6,8 @@ import java.util.Map;
 import java.util.Set;
 
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,11 +48,12 @@ public class TemplateEvaluacionService {
     private final ApplicationEventPublisher events;
     private final UsuarioRepository usuarioRepository;
 
-    public List<TemplateEvaluacionResponse> listarVisibles(Long callerId, boolean isAdmin) {
-        return repository.findAll().stream()
-                .filter(t -> isAdmin || esVisiblePara(t, callerId))
-                .map(mapper::toResponse)
-                .toList();
+    /** Rúbricas visibles paginadas por scope: "MIAS" (propias) o "PUBLICAS" (públicas de otros). */
+    public Page<TemplateEvaluacionResponse> listarVisibles(Long callerId, String scope, Pageable pageable) {
+        Page<TemplateEvaluacion> page = "PUBLICAS".equalsIgnoreCase(scope)
+                ? repository.buscarPublicas(callerId, pageable)
+                : repository.buscarMias(callerId, pageable);
+        return page.map(mapper::toResponse);
     }
 
     public TemplateEvaluacionResponse buscarVisible(Long id, Long callerId, boolean isAdmin) {

@@ -220,52 +220,20 @@ public class TemplateEvaluacionServiceTests {
     }
 
     @Test
-    void listarVisiblesShouldReturnOwnAndPublicOfOthersForNonAdmin() {
-        var propia = new TemplateEvaluacion();
-        var autorPropia = Mockito.mock(Usuario.class);
-        Mockito.when(autorPropia.getId()).thenReturn(7L);
-        propia.setAutor(autorPropia);
-        propia.setVisibilidad(Visibilidad.PRIVADO);
-        propia.setActivo(true);
-
-        var ajenaPublica = new TemplateEvaluacion();
-        var autorAjeno = Mockito.mock(Usuario.class);
-        Mockito.when(autorAjeno.getId()).thenReturn(8L);
-        ajenaPublica.setAutor(autorAjeno);
-        ajenaPublica.setVisibilidad(Visibilidad.PUBLICO);
-        ajenaPublica.setActivo(true);
-
-        var ajenaPrivada = new TemplateEvaluacion();
-        var autorAjeno2 = Mockito.mock(Usuario.class);
-        Mockito.when(autorAjeno2.getId()).thenReturn(9L);
-        ajenaPrivada.setAutor(autorAjeno2);
-        ajenaPrivada.setVisibilidad(Visibilidad.PRIVADO);
-        ajenaPrivada.setActivo(true);
-
-        Mockito.when(repository.findAll()).thenReturn(List.of(propia, ajenaPublica, ajenaPrivada));
-
-        var res = service.listarVisibles(7L, false);
-        Assertions.assertEquals(2, res.size()); // propia + ajena pública, NO la ajena privada
+    void listarVisiblesScopeMiasUsaBuscarMias() {
+        Mockito.when(repository.buscarMias(Mockito.any(), Mockito.any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+        service.listarVisibles(7L, "MIAS", org.springframework.data.domain.PageRequest.of(0, 12));
+        Mockito.verify(repository).buscarMias(Mockito.eq(7L), Mockito.any());
+        Mockito.verify(repository, Mockito.never()).buscarPublicas(Mockito.any(), Mockito.any());
     }
 
     @Test
-    void listarVisiblesShouldReturnAllForAdmin() {
-        var propia = new TemplateEvaluacion();
-        var autorPropia = Mockito.mock(Usuario.class);
-        propia.setAutor(autorPropia);
-        propia.setVisibilidad(Visibilidad.PRIVADO);
-        propia.setActivo(true);
-
-        var ajenaPrivada = new TemplateEvaluacion();
-        var autorAjeno = Mockito.mock(Usuario.class);
-        ajenaPrivada.setAutor(autorAjeno);
-        ajenaPrivada.setVisibilidad(Visibilidad.PRIVADO);
-        ajenaPrivada.setActivo(true);
-
-        Mockito.when(repository.findAll()).thenReturn(List.of(propia, ajenaPrivada));
-
-        var res = service.listarVisibles(7L, true);
-        Assertions.assertEquals(2, res.size());
+    void listarVisiblesScopePublicasUsaBuscarPublicas() {
+        Mockito.when(repository.buscarPublicas(Mockito.any(), Mockito.any()))
+                .thenReturn(org.springframework.data.domain.Page.empty());
+        service.listarVisibles(7L, "PUBLICAS", org.springframework.data.domain.PageRequest.of(0, 12));
+        Mockito.verify(repository).buscarPublicas(Mockito.eq(7L), Mockito.any());
     }
 
     @Test

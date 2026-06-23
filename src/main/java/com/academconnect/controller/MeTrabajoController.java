@@ -8,6 +8,10 @@ import com.academconnect.service.TrabajoService;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -45,8 +49,10 @@ public class MeTrabajoController {
 
     @GetMapping
     @PreAuthorize("hasRole('ESTUDIANTE')")
-    public List<TrabajoResponse> listar(Authentication authn) {
-        return service.listarMisBorradores(currentUserId(authn));
+    public Page<TrabajoResponse> listar(
+            @PageableDefault(size = 10, sort = "updatedAt", direction = Sort.Direction.DESC) Pageable pageable,
+            Authentication authn) {
+        return service.listarMisBorradores(currentUserId(authn), pageable);
     }
 
     @GetMapping("/{id}")

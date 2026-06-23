@@ -2,6 +2,10 @@ package com.academconnect.controller;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -30,7 +34,8 @@ public class ActividadController {
 
     @GetMapping("/admin/actividad")
     @PreAuthorize("hasRole('ADMINISTRADOR')")
-    public List<ActividadResponse> feedAdmin(@RequestParam(defaultValue = "50") int limit) {
-        return service.feedAdmin(limit);
+    public Page<ActividadResponse> feedAdmin(
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return service.feedAdmin(pageable);
     }
 }

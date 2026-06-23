@@ -3,7 +3,9 @@ package com.academconnect.service;
 import java.util.List;
 
 import org.springframework.context.event.EventListener;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,11 +63,8 @@ public class ActividadService {
                 .toList();
     }
 
-    public List<ActividadResponse> feedAdmin(int limit) {
-        return repository.findAll(PageRequest.of(0, Math.min(limit, 100), org.springframework.data.domain.Sort.by(
-                org.springframework.data.domain.Sort.Direction.DESC, "createdAt"))).stream()
-                .map(this::toResponse)
-                .toList();
+    public Page<ActividadResponse> feedAdmin(Pageable pageable) {
+        return repository.findAll(pageable).map(this::toResponse);
     }
 
     private ActividadResponse toResponse(Actividad a) {

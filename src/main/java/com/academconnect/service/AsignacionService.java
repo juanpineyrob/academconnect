@@ -3,6 +3,8 @@ package com.academconnect.service;
 import java.time.Instant;
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -134,6 +136,16 @@ public class AsignacionService {
     }
 
     /** G09 — sin filtro de estado (historial completo del evaluador). */
+    /** G09 paginado — si {@code estado} es null devuelve todas; si no, filtra por estado. */
+    public Page<AsignacionResponse> listarMisAsignaciones(String email, EstadoAsignacion estado, Pageable pageable) {
+        var evaluador = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario con email", email));
+        Page<Asignacion> page = estado != null
+                ? asignacionRepository.findByEvaluadorIdAndEstado(evaluador.getId(), estado, pageable)
+                : asignacionRepository.findByEvaluadorId(evaluador.getId(), pageable);
+        return page.map(mapper::toResponse);
+    }
+
     public List<AsignacionResponse> listarMisAsignacionesTodas(String email) {
         var evaluador = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario con email", email));

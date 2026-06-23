@@ -8,6 +8,8 @@ import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.mapper.AreaTematicaMapper;
 import com.academconnect.repository.AreaTematicaRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,12 +36,10 @@ public class AreaTematicaService {
                 .orElseThrow(() -> new ResourceNotFoundException("AreaTematica", id));
     }
 
-    /** Administración: todas las áreas, incluidas las inactivas. */
-    public List<AreaTematicaResponse> listarTodas() {
-        return repository.findAll().stream()
-                .sorted((a, b) -> a.getNombre().compareToIgnoreCase(b.getNombre()))
-                .map(mapper::toResponse)
-                .toList();
+    /** Administración: áreas (incluidas inactivas) paginadas y filtradas por texto. */
+    public Page<AreaTematicaResponse> buscar(String q, Pageable pageable) {
+        String qn = (q == null || q.isBlank()) ? null : q.trim();
+        return repository.buscarAdmin(qn, pageable).map(mapper::toResponse);
     }
 
     @Transactional

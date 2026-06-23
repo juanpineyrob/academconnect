@@ -17,6 +17,8 @@ import com.academconnect.repository.ProfesorRepository;
 import com.academconnect.repository.TrabajoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -163,6 +165,17 @@ public class InvitacionOrientacionService {
     public List<InvitacionOrientacionResponse> listarRecibidas(Long profesorId) {
         return repository.findByProfesorIdOrderByCreatedAtDesc(profesorId)
                 .stream().map(mapper::toResponse).toList();
+    }
+
+    /** Paginado: {@code soloPendientes} → pestaña Pendientes; si no → Histórico (no pendientes). */
+    public Page<InvitacionOrientacionResponse> listarRecibidasPaginadas(
+            Long profesorId, boolean soloPendientes, Pageable pageable) {
+        Page<InvitacionOrientacion> page = soloPendientes
+                ? repository.findByProfesorIdAndEstadoOrderByCreatedAtDesc(
+                        profesorId, EstadoInvitacion.PENDIENTE, pageable)
+                : repository.findByProfesorIdAndEstadoNotOrderByCreatedAtDesc(
+                        profesorId, EstadoInvitacion.PENDIENTE, pageable);
+        return page.map(mapper::toResponse);
     }
 
     public List<InvitacionOrientacionResponse> listarPorTrabajo(Long trabajoId) {

@@ -10,6 +10,10 @@ import com.academconnect.service.InvitacionOrientacionService;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -64,12 +68,12 @@ public class InvitacionOrientacionController {
 
     @GetMapping
     @PreAuthorize("hasRole('PROFESOR')")
-    public List<InvitacionOrientacionResponse> recibidas(
-            @RequestParam(required = false) EstadoInvitacion estado, Authentication authn) {
-        var id = currentUserId(authn);
-        return estado == EstadoInvitacion.PENDIENTE
-                ? service.listarRecibidasPendientes(id)
-                : service.listarRecibidas(id);
+    public Page<InvitacionOrientacionResponse> recibidas(
+            @RequestParam(required = false) EstadoInvitacion estado,
+            @PageableDefault(size = 10, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable,
+            Authentication authn) {
+        return service.listarRecibidasPaginadas(
+                currentUserId(authn), estado == EstadoInvitacion.PENDIENTE, pageable);
     }
 
     private Long currentUserId(Authentication authn) {

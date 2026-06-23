@@ -3,6 +3,9 @@ package com.academconnect.service;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -109,12 +112,12 @@ class AreaTematicaServiceTests {
     }
 
     @Test
-    void listarTodasIncluyeInactivasYOrdenaPorNombre() {
-        Mockito.when(repository.findAll()).thenReturn(List.of(area("Zeta", true), area("alfa", false)));
-        List<AreaTematicaResponse> res = service.listarTodas();
-        Assertions.assertEquals(2, res.size());
-        Assertions.assertEquals("alfa", res.get(0).nombre());
-        Assertions.assertEquals("Zeta", res.get(1).nombre());
-        Assertions.assertFalse(res.get(0).activo());
+    void buscarMapeaResultadosIncluyendoInactivas() {
+        Mockito.when(repository.buscarAdmin(Mockito.any(), Mockito.any()))
+                .thenReturn(new PageImpl<>(List.of(area("alfa", false))));
+        var res = service.buscar("al", PageRequest.of(0, 10));
+        Assertions.assertEquals(1, res.getTotalElements());
+        Assertions.assertEquals("alfa", res.getContent().get(0).nombre());
+        Assertions.assertFalse(res.getContent().get(0).activo());
     }
 }

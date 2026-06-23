@@ -2,6 +2,10 @@ package com.academconnect.controller;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -88,15 +92,11 @@ public class MeController {
      */
     @GetMapping("/evaluador/me/asignaciones")
     @PreAuthorize("hasAnyRole('PROFESOR','EXTERNO')")
-    public List<AsignacionResponse> misAsignaciones(
+    public Page<AsignacionResponse> misAsignaciones(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(required = false) EstadoAsignacion estado,
-            @RequestParam(required = false, defaultValue = "false") boolean all) {
-        if (all) {
-            return asignacionService.listarMisAsignacionesTodas(jwt.getSubject());
-        }
-        return asignacionService.listarMisAsignaciones(jwt.getSubject(),
-                estado != null ? estado : EstadoAsignacion.ACTIVA);
+            @PageableDefault(size = 10, sort = "asignadaEn", direction = Sort.Direction.DESC) Pageable pageable) {
+        return asignacionService.listarMisAsignaciones(jwt.getSubject(), estado, pageable);
     }
 
     /** G03 — trabajos del estudiante autenticado. */

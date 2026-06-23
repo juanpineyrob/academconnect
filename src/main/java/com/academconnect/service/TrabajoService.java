@@ -170,6 +170,10 @@ public class TrabajoService {
                 .toList();
     }
 
+    public Page<TrabajoResponse> listarMisBorradores(Long estudianteId, Pageable pageable) {
+        return trabajoRepository.findByEstudianteId(estudianteId, pageable).map(mapper::toResponse);
+    }
+
     /**
      * Importación legacy: el administrador da de alta trabajos finalizados fuera del sistema.
      * No pasa por el state machine — el {@code estado} es el del request (típicamente APROBADO).
