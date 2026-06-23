@@ -1,0 +1,7 @@
+Hola {{nombre}},
+
+Recibimos un pedido para restablecer tu contraseña de AcademConnect. Entrá a este enlace (vence en {{ttlHoras}} horas):
+
+{{enlace}}
+
+Si no lo pediste, ignorá este correo: tu contraseña no cambió.
