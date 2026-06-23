@@ -99,6 +99,9 @@ public class OnboardingService {
     public SolicitudResponse aprobar(Long solicitudId, Long adminId) {
         var s = solicitudRepository.findById(solicitudId)
                 .orElseThrow(() -> new ResourceNotFoundException("Solicitud de cuenta", solicitudId));
+        if (s.getEstado() != EstadoSolicitudCuenta.PENDIENTE) {
+            throw new BusinessException("La solicitud ya fue resuelta");
+        }
         String email = s.getEmail().toLowerCase();
         if (usuarioRepository.findByEmail(email).isPresent()
                 || usuarioRepository.existsByMatricula(s.getMatricula())) {
@@ -135,6 +138,9 @@ public class OnboardingService {
     public SolicitudResponse rechazar(Long solicitudId, Long adminId, String motivo) {
         var s = solicitudRepository.findById(solicitudId)
                 .orElseThrow(() -> new ResourceNotFoundException("Solicitud de cuenta", solicitudId));
+        if (s.getEstado() != EstadoSolicitudCuenta.PENDIENTE) {
+            throw new BusinessException("La solicitud ya fue resuelta");
+        }
         s.setEstado(EstadoSolicitudCuenta.RECHAZADA);
         s.setMotivoRechazo(motivo);
         s.setDecididoPorId(adminId);

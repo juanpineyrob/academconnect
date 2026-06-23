@@ -25,8 +25,21 @@ public class RateLimiterService {
         while (!q.isEmpty() && q.peekFirst().isBefore(limite)) {
             q.pollFirst();
         }
+        // Oportunidad de purga: barre claves vecinas cuyos timestamps ya expiraron, evitando que el map
+        // crezca de forma ilimitada por claves (email+IP) que no vuelven a usarse. La clave actual se
+        // recrea más abajo si corresponde, así que es seguro evaluarla también.
+        hits.values().removeIf(d -> {
+            while (!d.isEmpty() && d.peekFirst().isBefore(limite)) {
+                d.pollFirst();
+            }
+            return d.isEmpty();
+        });
         if (q.size() >= maximo) {
             return false;
+        }
+        if (q.isEmpty()) {
+            // La purga anterior pudo haber removido la clave actual al quedar vacía: reinsertarla.
+            hits.put(clave, q);
         }
         q.addLast(ahora);
         return true;

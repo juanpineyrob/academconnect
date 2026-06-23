@@ -105,6 +105,31 @@ class AdminSolicitudControllerTests {
     }
 
     @Test
+    void aprobarConEmailOMatriculaExistenteDevuelve409() throws Exception {
+        var s = new SolicitudCuenta();
+        s.setMatricula("EST-1"); // matrícula ya usada por el estudiante sembrado
+        s.setEmail(ESTU_EMAIL); // email ya usado por el estudiante sembrado
+        s.setNombre("Ped");
+        Long id = repo.save(s).getId();
+        mockMvc.perform(post("/admin/solicitudes/" + id + "/aprobar").cookie(login(ADMIN_EMAIL)))
+                .andExpect(status().isConflict());
+        assertThat(repo.findById(id).orElseThrow().getEstado()).isEqualTo(EstadoSolicitudCuenta.PENDIENTE);
+    }
+
+    @Test
+    void aprobarSolicitudYaResueltaDevuelve409() throws Exception {
+        var s = new SolicitudCuenta();
+        s.setMatricula("2024888");
+        s.setEmail("rej@academ.test");
+        s.setNombre("Rej");
+        s.setEstado(EstadoSolicitudCuenta.RECHAZADA);
+        Long id = repo.save(s).getId();
+        mockMvc.perform(post("/admin/solicitudes/" + id + "/aprobar").cookie(login(ADMIN_EMAIL)))
+                .andExpect(status().isConflict());
+        assertThat(repo.findById(id).orElseThrow().getEstado()).isEqualTo(EstadoSolicitudCuenta.RECHAZADA);
+    }
+
+    @Test
     void noAdminRecibe403() throws Exception {
         mockMvc.perform(get("/admin/solicitudes").cookie(login(ESTU_EMAIL)))
                 .andExpect(status().isForbidden());
