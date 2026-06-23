@@ -30,10 +30,10 @@ public class AdminUsuarioService {
     private final PasswordEncoder passwordEncoder;
 
     public Page<AdminUsuarioResponse> buscar(String q, Rol rol, Pageable pageable) {
-        String qn = (q == null || q.isBlank()) ? null : q.trim();
+        String patron = (q == null || q.isBlank()) ? null : "%" + q.trim().toLowerCase() + "%";
         Page<Usuario> page = (rol == null)
-                ? repository.buscarAdmin(qn, pageable)
-                : repository.buscarAdminPorTipo(qn, claseDe(rol), pageable);
+                ? repository.buscarAdmin(patron, pageable)
+                : repository.buscarAdminPorTipo(patron, claseDe(rol), pageable);
         return page.map(this::toResponse);
     }
 

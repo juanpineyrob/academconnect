@@ -38,8 +38,8 @@ public class AreaTematicaService {
 
     /** Administración: áreas (incluidas inactivas) paginadas y filtradas por texto. */
     public Page<AreaTematicaResponse> buscar(String q, Pageable pageable) {
-        String qn = (q == null || q.isBlank()) ? null : q.trim();
-        return repository.buscarAdmin(qn, pageable).map(mapper::toResponse);
+        String patron = (q == null || q.isBlank()) ? null : "%" + q.trim().toLowerCase() + "%";
+        return repository.buscarAdmin(patron, pageable).map(mapper::toResponse);
     }
 
     @Transactional

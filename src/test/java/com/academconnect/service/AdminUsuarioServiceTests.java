@@ -160,7 +160,7 @@ class AdminUsuarioServiceTests {
     void buscarSinRolUsaBuscarAdmin() {
         Mockito.when(repository.buscarAdmin(Mockito.any(), Mockito.any())).thenReturn(Page.empty());
         service.buscar("ana", null, PageRequest.of(0, 10));
-        Mockito.verify(repository).buscarAdmin(Mockito.eq("ana"), Mockito.any());
+        Mockito.verify(repository).buscarAdmin(Mockito.eq("%ana%"), Mockito.any());
         Mockito.verify(repository, Mockito.never())
                 .buscarAdminPorTipo(Mockito.any(), Mockito.any(), Mockito.any());
     }

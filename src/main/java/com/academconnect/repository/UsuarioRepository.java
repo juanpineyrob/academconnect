@@ -18,19 +18,19 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Long> {
 
     boolean existsByMatricula(String matricula);
 
-    /** Búsqueda administrativa paginada por texto (nombre/email/matrícula). */
-    @Query("SELECT u FROM Usuario u WHERE :q IS NULL " +
-           "OR LOWER(u.nombre) LIKE LOWER(CONCAT('%', :q, '%')) " +
-           "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%')) " +
-           "OR LOWER(COALESCE(u.matricula, '')) LIKE LOWER(CONCAT('%', :q, '%'))")
-    Page<Usuario> buscarAdmin(@Param("q") String q, Pageable pageable);
+    /** Búsqueda admin paginada (nombre/email/matrícula). {@code patron} ya viene como %…% en minúsculas (o null). */
+    @Query("SELECT u FROM Usuario u WHERE :patron IS NULL " +
+           "OR LOWER(u.nombre) LIKE :patron " +
+           "OR LOWER(u.email) LIKE :patron " +
+           "OR LOWER(COALESCE(u.matricula, '')) LIKE :patron")
+    Page<Usuario> buscarAdmin(@Param("patron") String patron, Pageable pageable);
 
     /** Igual que {@link #buscarAdmin} pero filtrando por subtipo (rol). */
-    @Query("SELECT u FROM Usuario u WHERE TYPE(u) = :tipo AND (:q IS NULL " +
-           "OR LOWER(u.nombre) LIKE LOWER(CONCAT('%', :q, '%')) " +
-           "OR LOWER(u.email) LIKE LOWER(CONCAT('%', :q, '%')) " +
-           "OR LOWER(COALESCE(u.matricula, '')) LIKE LOWER(CONCAT('%', :q, '%')))")
-    Page<Usuario> buscarAdminPorTipo(@Param("q") String q,
+    @Query("SELECT u FROM Usuario u WHERE TYPE(u) = :tipo AND (:patron IS NULL " +
+           "OR LOWER(u.nombre) LIKE :patron " +
+           "OR LOWER(u.email) LIKE :patron " +
+           "OR LOWER(COALESCE(u.matricula, '')) LIKE :patron)")
+    Page<Usuario> buscarAdminPorTipo(@Param("patron") String patron,
                                      @Param("tipo") Class<? extends Usuario> tipo, Pageable pageable);
 
     /** Profesores y externos activos: pool de evaluadores potenciales. */

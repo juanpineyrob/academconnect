@@ -20,9 +20,9 @@ public interface AreaTematicaRepository extends JpaRepository<AreaTematica, Long
 
     Optional<AreaTematica> findByCodigoExternoAndThesaurusOrigen(String codigo, ThesaurusOrigen origen);
 
-    /** Búsqueda administrativa paginada por texto (nombre/código). */
-    @Query("SELECT a FROM AreaTematica a WHERE :q IS NULL " +
-           "OR LOWER(a.nombre) LIKE LOWER(CONCAT('%', :q, '%')) " +
-           "OR LOWER(COALESCE(a.codigoExterno, '')) LIKE LOWER(CONCAT('%', :q, '%'))")
-    Page<AreaTematica> buscarAdmin(@Param("q") String q, Pageable pageable);
+    /** Búsqueda admin paginada (nombre/código). {@code patron} ya viene como %…% en minúsculas (o null). */
+    @Query("SELECT a FROM AreaTematica a WHERE :patron IS NULL " +
+           "OR LOWER(a.nombre) LIKE :patron " +
+           "OR LOWER(COALESCE(a.codigoExterno, '')) LIKE :patron")
+    Page<AreaTematica> buscarAdmin(@Param("patron") String patron, Pageable pageable);
 }
