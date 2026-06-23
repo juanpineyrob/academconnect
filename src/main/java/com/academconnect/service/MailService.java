@@ -1,12 +1,9 @@
 package com.academconnect.service;
 
-import java.time.Instant;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Pageable;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +12,6 @@ import com.academconnect.domain.EstadoMail;
 import com.academconnect.domain.MailPendiente;
 import com.academconnect.repository.MailPendienteRepository;
 
-import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -24,13 +20,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class MailService {
 
-    private static final int MAX_INTENTOS = 3;
-
     private final MailPendienteRepository repo;
-    private final JavaMailSender mailSender;
-
-    @Value("${academconnect.mail.from}")
-    private String from;
+    private final MailDispatchWorker worker;
 
     @Value("${academconnect.mail.lote-size:25}")
     private int loteSize;
@@ -45,33 +36,26 @@ public class MailService {
         repo.save(m);
     }
 
-    /** Oleada: toma hasta loteSize pendientes y los envía. Disparado por @Scheduled o manualmente (admin/import). */
+    /**
+     * Oleada de envío: toma hasta {@code loteSize} correos PENDIENTE y delega cada uno a
+     * {@link MailDispatchWorker#procesarUno(MailPendiente)}, que lo envía y persiste su estado en su
+     * propia transacción ({@code REQUIRES_NEW}). Una excepción en un correo no aborta la oleada.
+     *
+     * <p>La entrega es <strong>at-least-once</strong>: si la aplicación cae entre el envío SMTP y el
+     * commit del estado, el correo seguirá PENDIENTE y se reenviará en la próxima oleada. El drenador
+     * asume además una <strong>única instancia de la aplicación</strong>: no hay claim ni bloqueo a
+     * nivel de fila, por lo que dos instancias tomarían los mismos correos. Para multi-instancia,
+     * reclamar las filas con {@code FOR UPDATE SKIP LOCKED} antes de enviarlas.
+     */
     @Scheduled(fixedDelayString = "${academconnect.mail.drain-fixed-delay-ms:30000}")
-    @Transactional
     public void drenar() {
         List<MailPendiente> lote = repo.findByEstadoOrderByCreatedAtAsc(EstadoMail.PENDIENTE, Pageable.ofSize(loteSize));
         for (MailPendiente m : lote) {
             try {
-                MimeMessage mime = mailSender.createMimeMessage();
-                MimeMessageHelper h = new MimeMessageHelper(mime, true, "UTF-8");
-                h.setFrom(from);
-                h.setTo(m.getDestinatario());
-                h.setSubject(m.getAsunto());
-                h.setText(m.getCuerpoTexto(), m.getCuerpoHtml());
-                mailSender.send(mime);
-                m.setEstado(EstadoMail.ENVIADO);
-                m.setEnviadoEn(Instant.now());
+                worker.procesarUno(m);
             } catch (Exception e) {
-                m.setIntentos(m.getIntentos() + 1);
-                m.setUltimoError(e.getMessage() == null
-                        ? "error"
-                        : e.getMessage().substring(0, Math.min(500, e.getMessage().length())));
-                if (m.getIntentos() >= MAX_INTENTOS) {
-                    m.setEstado(EstadoMail.FALLIDO);
-                    log.warn("Mail a {} falló definitivamente: {}", m.getDestinatario(), m.getUltimoError());
-                }
+                log.warn("Error al procesar mail id={}: {}", m.getId(), e.getMessage());
             }
-            repo.save(m);
         }
     }
 }
