@@ -20,7 +20,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.academconnect.TestcontainersConfiguration;
 import com.academconnect.config.CookieBearerTokenResolver;
+import com.academconnect.domain.EstadoCuenta;
 import com.academconnect.dto.EstudianteRequest;
+import com.academconnect.repository.UsuarioRepository;
 import com.academconnect.service.EstudianteService;
 
 import jakarta.servlet.http.Cookie;
@@ -41,9 +43,29 @@ public class AuthControllerTests {
     @Autowired
     private EstudianteService estudianteService;
 
+    @Autowired
+    private UsuarioRepository usuarioRepository;
+
     @BeforeEach
     void seedUsuario() {
         estudianteService.crear(new EstudianteRequest(EMAIL, PASSWORD, "Auth Tester", null, null, null));
+    }
+
+    @Test
+    void loginShouldFailGenericallyWhenAccountIsInvitada() throws Exception {
+        var u = usuarioRepository.findByEmail(EMAIL).orElseThrow();
+        u.setEstadoCuenta(EstadoCuenta.INVITADA);
+        u.setPassword(null);
+        usuarioRepository.save(u);
+
+        String body = """
+                {"email":"%s","password":"%s"}
+                """.formatted(EMAIL, PASSWORD);
+
+        mockMvc.perform(post("/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

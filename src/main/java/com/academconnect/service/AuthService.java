@@ -13,6 +13,7 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.academconnect.domain.EstadoCuenta;
 import com.academconnect.domain.Usuario;
 import com.academconnect.dto.AuthResponse;
 import com.academconnect.dto.EstudianteRequest;
@@ -42,6 +43,9 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
         var usuario = usuarioRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BadCredentialsException("Credenciales inválidas"));
+        if (usuario.getEstadoCuenta() != EstadoCuenta.ACTIVA || usuario.getPassword() == null) {
+            throw new BadCredentialsException("Credenciales inválidas");
+        }
         if (!passwordEncoder.matches(request.password(), usuario.getPassword())) {
             throw new BadCredentialsException("Credenciales inválidas");
         }
