@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.academconnect.domain.PropositoToken;
 import com.academconnect.domain.TokenCuenta;
 import com.academconnect.domain.Usuario;
-import com.academconnect.exception.BusinessException;
+import com.academconnect.exception.TokenInvalidoException;
 import com.academconnect.repository.TokenCuentaRepository;
 import com.academconnect.repository.UsuarioRepository;
 
@@ -57,11 +57,11 @@ public class TokenCuentaService {
         var token = tokenRepository.findByTokenHash(hash(claro))
                 .filter(t -> t.getProposito() == propositoEsperado)
                 .filter(t -> t.esUsable(Instant.now()))
-                .orElseThrow(() -> new BusinessException("token-invalido"));
+                .orElseThrow(TokenInvalidoException::new);
         token.setUsadoEn(Instant.now());
         tokenRepository.save(token);
         return usuarioRepository.findById(token.getUsuarioId())
-                .orElseThrow(() -> new BusinessException("token-invalido"));
+                .orElseThrow(TokenInvalidoException::new);
     }
 
     /** Verifica sin consumir. Devuelve el propósito si es usable, o null. */

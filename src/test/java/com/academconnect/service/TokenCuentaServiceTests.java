@@ -13,7 +13,7 @@ import com.academconnect.TestcontainersConfiguration;
 import com.academconnect.domain.EstadoCuenta;
 import com.academconnect.domain.PropositoToken;
 import com.academconnect.dto.EstudianteRequest;
-import com.academconnect.exception.BusinessException;
+import com.academconnect.exception.TokenInvalidoException;
 import com.academconnect.repository.TokenCuentaRepository;
 import com.academconnect.repository.UsuarioRepository;
 
@@ -66,7 +66,7 @@ class TokenCuentaServiceTests {
         var consumido = tokenService.consumir(claro, PropositoToken.ACTIVACION);
         assertThat(consumido.getId()).isEqualTo(id);
 
-        org.junit.jupiter.api.Assertions.assertThrows(BusinessException.class,
+        org.junit.jupiter.api.Assertions.assertThrows(TokenInvalidoException.class,
                 () -> tokenService.consumir(claro, PropositoToken.ACTIVACION));
     }
 

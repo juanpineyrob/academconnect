@@ -37,6 +37,14 @@ public class GlobalExceptionHandler {
         return pd;
     }
 
+    @ExceptionHandler(TokenInvalidoException.class)
+    public ProblemDetail handleTokenInvalido(TokenInvalidoException ex) {
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        pd.setTitle("Enlace inválido");
+        pd.setType(URI.create("urn:academconnect:error:token-invalido"));
+        return pd;
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ProblemDetail handleValidation(MethodArgumentNotValidException ex) {
         List<Map<String, String>> errors = ex.getBindingResult().getFieldErrors().stream()
