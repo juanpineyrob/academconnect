@@ -11,10 +11,16 @@ import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
+import org.springframework.data.domain.Pageable;
+
 import com.academconnect.TestcontainersConfiguration;
 import com.academconnect.domain.Administrador;
 import com.academconnect.domain.EstadoCuenta;
+import com.academconnect.domain.EstadoMail;
 import com.academconnect.dto.EstudianteRequest;
+import com.academconnect.dto.ImportConfirmRequest;
+import com.academconnect.exception.BusinessException;
+import com.academconnect.repository.MailPendienteRepository;
 import com.academconnect.repository.UsuarioRepository;
 
 @SpringBootTest
@@ -26,6 +32,7 @@ class ImportacionUsuariosServiceTests {
     @Autowired ImportacionUsuariosService service;
     @Autowired UsuarioRepository usuarioRepository;
     @Autowired EstudianteService estudianteService;
+    @Autowired MailPendienteRepository mailRepo;
 
     private Long adminId() {
         return usuarioRepository.findByEmail("admin-import@academ.test").orElseGet(() -> {
@@ -101,5 +108,63 @@ class ImportacionUsuariosServiceTests {
         assertThat(preview.existentes()).isEqualTo(1);
         assertThat(preview.items().get(0).resultado())
                 .isEqualTo(com.academconnect.domain.ResultadoFila.EXISTE_INVITADA);
+    }
+
+    @Test
+    void confirmarCreaSoloLosNuevosComoInvitadosYEncolaUnMailCadaUno() {
+        Long admin = adminId();
+        String csv = String.join("\n", "email,matricula,nombre",
+                "a@academ.test,MA,A", "b@academ.test,MB,B");
+        var preview = service.preview("p.csv", csv.getBytes(StandardCharsets.UTF_8), admin);
+
+        long mailsAntes = mailRepo.findByEstadoOrderByCreatedAtAsc(EstadoMail.PENDIENTE, Pageable.ofSize(100)).size();
+        service.confirmar(preview.loteId(), new ImportConfirmRequest(false), admin);
+
+        var a = usuarioRepository.findByEmail("a@academ.test").orElseThrow();
+        assertThat(a.getEstadoCuenta()).isEqualTo(EstadoCuenta.INVITADA);
+        assertThat(a.getPassword()).isNull();
+        assertThat(a.getLoteImportacionId()).isEqualTo(preview.loteId());
+        long mailsDespues = mailRepo.findByEstadoOrderByCreatedAtAsc(EstadoMail.PENDIENTE, Pageable.ofSize(100)).size();
+        assertThat(mailsDespues - mailsAntes).isEqualTo(2);
+    }
+
+    @Test
+    void confirmarEsIdempotenteNoRecreaNiPisaExistentes() {
+        Long admin = adminId();
+        String csv = String.join("\n", "email,matricula,nombre", "c@academ.test,MC,C");
+        var p1 = service.preview("p.csv", csv.getBytes(StandardCharsets.UTF_8), admin);
+        service.confirmar(p1.loteId(), new ImportConfirmRequest(false), admin);
+        long antes = usuarioRepository.count();
+
+        var p2 = service.preview("p.csv", csv.getBytes(StandardCharsets.UTF_8), admin);
+        // tras el commit previo, la fila ahora clasifica EXISTE_INVITADA
+        assertThat(p2.items().get(0).resultado())
+                .isEqualTo(com.academconnect.domain.ResultadoFila.EXISTE_INVITADA);
+        service.confirmar(p2.loteId(), new ImportConfirmRequest(false), admin); // skip -> no crea nada
+        assertThat(usuarioRepository.count()).isEqualTo(antes);
+    }
+
+    @Test
+    void confirmarUnLoteYaConfirmadoLanza() {
+        Long admin = adminId();
+        String csv = "email,matricula,nombre\nd@academ.test,MD,D\n";
+        var p = service.preview("p.csv", csv.getBytes(StandardCharsets.UTF_8), admin);
+        service.confirmar(p.loteId(), new ImportConfirmRequest(false), admin);
+        org.junit.jupiter.api.Assertions.assertThrows(BusinessException.class,
+                () -> service.confirmar(p.loteId(), new ImportConfirmRequest(false), admin));
+    }
+
+    @Test
+    void confirmarReenviaInvitadasSoloSiSeSolicita() {
+        Long admin = adminId();
+        String csv = "email,matricula,nombre\nre@academ.test,MRE,Re\n";
+        var p1 = service.preview("p.csv", csv.getBytes(StandardCharsets.UTF_8), admin);
+        service.confirmar(p1.loteId(), new ImportConfirmRequest(false), admin);
+
+        var p2 = service.preview("p.csv", csv.getBytes(StandardCharsets.UTF_8), admin);
+        long mailsAntes = mailRepo.findByEstadoOrderByCreatedAtAsc(EstadoMail.PENDIENTE, Pageable.ofSize(100)).size();
+        service.confirmar(p2.loteId(), new ImportConfirmRequest(true), admin); // reenviar invitadas
+        long mailsDespues = mailRepo.findByEstadoOrderByCreatedAtAsc(EstadoMail.PENDIENTE, Pageable.ofSize(100)).size();
+        assertThat(mailsDespues - mailsAntes).isEqualTo(1);
     }
 }
