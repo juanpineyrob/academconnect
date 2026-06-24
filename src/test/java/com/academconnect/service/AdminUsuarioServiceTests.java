@@ -54,7 +54,7 @@ class AdminUsuarioServiceTests {
 
     @Test
     void crearEstudianteCreaInvitadaSinPasswordYEncolaActivacion() {
-        var resp = service.crear(crearReq(Rol.ESTUDIANTE, "e@x.uy", null, null));
+        var resp = service.crear(crearReq(Rol.ESTUDIANTE, "e@x.uy", null, null), 1L);
         ArgumentCaptor<Usuario> cap = ArgumentCaptor.forClass(Usuario.class);
         Mockito.verify(repository).save(cap.capture());
         Assertions.assertInstanceOf(Estudiante.class, cap.getValue());
@@ -69,7 +69,7 @@ class AdminUsuarioServiceTests {
 
     @Test
     void crearProfesorSeteaTitulacionYCargo() {
-        service.crear(crearReq(Rol.PROFESOR, "p@x.uy", null, null));
+        service.crear(crearReq(Rol.PROFESOR, "p@x.uy", null, null), 1L);
         ArgumentCaptor<Usuario> cap = ArgumentCaptor.forClass(Usuario.class);
         Mockito.verify(repository).save(cap.capture());
         Profesor p = Assertions.assertInstanceOf(Profesor.class, cap.getValue());
@@ -80,12 +80,12 @@ class AdminUsuarioServiceTests {
     @Test
     void crearExternoSinInstitucionFalla() {
         Assertions.assertThrows(BusinessException.class,
-                () -> service.crear(crearReq(Rol.EXTERNO, "x@x.uy", "  ", "Magíster")));
+                () -> service.crear(crearReq(Rol.EXTERNO, "x@x.uy", "  ", "Magíster"), 1L));
     }
 
     @Test
     void crearExternoOk() {
-        service.crear(crearReq(Rol.EXTERNO, "x@x.uy", "UDELAR", "Magíster"));
+        service.crear(crearReq(Rol.EXTERNO, "x@x.uy", "UDELAR", "Magíster"), 1L);
         ArgumentCaptor<Usuario> cap = ArgumentCaptor.forClass(Usuario.class);
         Mockito.verify(repository).save(cap.capture());
         Externo e = Assertions.assertInstanceOf(Externo.class, cap.getValue());
@@ -96,19 +96,19 @@ class AdminUsuarioServiceTests {
     void crearConEmailExistenteFalla() {
         Mockito.when(repository.existsByEmail("dup@x.uy")).thenReturn(true);
         Assertions.assertThrows(BusinessException.class,
-                () -> service.crear(crearReq(Rol.ESTUDIANTE, "dup@x.uy", null, null)));
+                () -> service.crear(crearReq(Rol.ESTUDIANTE, "dup@x.uy", null, null), 1L));
     }
 
     @Test
     void crearConMatriculaExistenteFalla() {
         Mockito.when(repository.existsByMatricula(Mockito.any())).thenReturn(true);
         Assertions.assertThrows(BusinessException.class,
-                () -> service.crear(crearReq(Rol.ESTUDIANTE, "nuevo@x.uy", null, null)));
+                () -> service.crear(crearReq(Rol.ESTUDIANTE, "nuevo@x.uy", null, null), 1L));
     }
 
     @Test
     void crearSeteaMatricula() {
-        service.crear(crearReq(Rol.PROFESOR, "m@x.uy", null, null));
+        service.crear(crearReq(Rol.PROFESOR, "m@x.uy", null, null), 1L);
         ArgumentCaptor<Usuario> cap = ArgumentCaptor.forClass(Usuario.class);
         Mockito.verify(repository).save(cap.capture());
         Assertions.assertEquals("MAT-m@x.uy", cap.getValue().getMatricula());
@@ -116,7 +116,7 @@ class AdminUsuarioServiceTests {
 
     @Test
     void crearNormalizaEmailAMinusculas() {
-        service.crear(crearReq(Rol.ESTUDIANTE, "  MixedCase@X.UY ", null, null));
+        service.crear(crearReq(Rol.ESTUDIANTE, "  MixedCase@X.UY ", null, null), 1L);
         ArgumentCaptor<Usuario> cap = ArgumentCaptor.forClass(Usuario.class);
         Mockito.verify(repository).save(cap.capture());
         Assertions.assertEquals("mixedcase@x.uy", cap.getValue().getEmail());
@@ -193,7 +193,7 @@ class AdminUsuarioServiceTests {
         Mockito.when(templates.restablecer(Mockito.any(), Mockito.any()))
                 .thenReturn(new MailTemplateService.MailContenido("asunto", "<p>html</p>", "texto"));
 
-        service.enviarEnlacePassword(5L);
+        service.enviarEnlacePassword(5L, 1L);
 
         Mockito.verify(tokenService).emitir(Mockito.eq(5L), Mockito.eq(PropositoToken.RESET));
         Mockito.verify(mailService).encolar(Mockito.eq("activa@x.uy"), Mockito.any(), Mockito.any(), Mockito.any());
@@ -208,7 +208,7 @@ class AdminUsuarioServiceTests {
         u.setEstadoCuenta(EstadoCuenta.INVITADA);
         Mockito.when(repository.findById(6L)).thenReturn(Optional.of(u));
 
-        service.enviarEnlacePassword(6L);
+        service.enviarEnlacePassword(6L, 1L);
 
         Mockito.verify(tokenService).emitir(Mockito.eq(6L), Mockito.eq(PropositoToken.ACTIVACION));
         Mockito.verify(mailService).encolar(Mockito.eq("invitada@x.uy"), Mockito.any(), Mockito.any(), Mockito.any());

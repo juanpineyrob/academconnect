@@ -47,8 +47,8 @@ public class AdminUsuarioController {
     }
 
     @PostMapping
-    public AdminUsuarioResponse crear(@Valid @RequestBody AdminUsuarioCreateRequest request) {
-        return service.crear(request);
+    public AdminUsuarioResponse crear(@Valid @RequestBody AdminUsuarioCreateRequest request, Authentication authn) {
+        return service.crear(request, callerId(authn));
     }
 
     @PutMapping("/{id}")
@@ -69,8 +69,8 @@ public class AdminUsuarioController {
 
     @PostMapping("/{id}/enviar-enlace-password")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void enviarEnlacePassword(@PathVariable Long id) {
-        service.enviarEnlacePassword(id);
+    public void enviarEnlacePassword(@PathVariable Long id, Authentication authn) {
+        service.enviarEnlacePassword(id, callerId(authn));
     }
 
     /** G08 — admin ajusta el tope de asignaciones de un evaluador. */

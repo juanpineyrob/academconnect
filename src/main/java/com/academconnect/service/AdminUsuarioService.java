@@ -58,7 +58,7 @@ public class AdminUsuarioService {
     }
 
     @Transactional
-    public AdminUsuarioResponse crear(AdminUsuarioCreateRequest req) {
+    public AdminUsuarioResponse crear(AdminUsuarioCreateRequest req, Long actorId) {
         String email = req.email().trim().toLowerCase();
         if (repository.existsByEmail(email)) {
             throw new BusinessException("Ya existe un usuario con ese email");
@@ -100,7 +100,7 @@ public class AdminUsuarioService {
         var c = templates.activacion(guardado.getNombre(), token);
         mailService.encolar(guardado.getEmail(), c.asunto(), c.html(), c.texto());
 
-        eventos.publishEvent(ActividadEvent.of(TipoActividad.CUENTA_INVITADA_CREADA, null,
+        eventos.publishEvent(ActividadEvent.of(TipoActividad.CUENTA_INVITADA_CREADA, actorId,
                 "USUARIO", guardado.getId(), Map.of("matricula", guardado.getMatricula()),
                 VisibilidadActividad.PRIVADA, List.of()));
         return toResponse(guardado);
@@ -161,7 +161,7 @@ public class AdminUsuarioService {
      * contraseñas: la única ancla de identidad es el control del correo institucional.
      */
     @Transactional
-    public void enviarEnlacePassword(Long id) {
+    public void enviarEnlacePassword(Long id, Long actorId) {
         Usuario u = repository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", id));
         PropositoToken proposito = (u.getEstadoCuenta() == EstadoCuenta.ACTIVA)
@@ -172,7 +172,7 @@ public class AdminUsuarioService {
                 ? templates.restablecer(u.getNombre(), token)
                 : templates.activacion(u.getNombre(), token);
         mailService.encolar(u.getEmail(), c.asunto(), c.html(), c.texto());
-        eventos.publishEvent(ActividadEvent.of(TipoActividad.ENLACE_PASSWORD_ENVIADO, null,
+        eventos.publishEvent(ActividadEvent.of(TipoActividad.ENLACE_PASSWORD_ENVIADO, actorId,
                 "USUARIO", u.getId(), Map.of("proposito", proposito.name()),
                 VisibilidadActividad.PRIVADA, List.of()));
     }
