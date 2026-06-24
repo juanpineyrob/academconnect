@@ -173,10 +173,8 @@ public class RecomendadorService {
 
         return candidatos.stream()
                 .map(p -> puntuarOrientador(p, areasTrabajoIds, cargas.get(p.getId()), maxCarga))
-                .sorted((a, b) -> {
-                    int c = b.score().compareTo(a.score());
-                    return c != 0 ? c : a.nombre().compareTo(b.nombre());
-                })
+                .sorted(Comparator.comparing(SugerenciaOrientadorResponse::score).reversed()
+                        .thenComparing(SugerenciaOrientadorResponse::nombre))
                 .toList();
     }
 
@@ -188,8 +186,9 @@ public class RecomendadorService {
                 .map(u -> u.getId().getAreaId())
                 .collect(Collectors.toSet());
         List<String> areasNombres = uats.stream()
-                .map(u -> u.getArea().getNombre())
-                .sorted(Comparator.nullsFirst(Comparator.naturalOrder()))
+                .map(u -> u.getArea() == null ? null : u.getArea().getNombre())
+                .filter(java.util.Objects::nonNull)
+                .sorted()
                 .toList();
 
         double afinidad = jaccard(areasTrabajoIds, areasProfe);
