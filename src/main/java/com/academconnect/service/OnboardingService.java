@@ -54,6 +54,13 @@ public class OnboardingService {
             u.setEstadoCuenta(EstadoCuenta.ACTIVA);
         }
         usuarioRepository.save(u);
+
+        TipoActividad tipo = proposito == PropositoToken.ACTIVACION
+                ? TipoActividad.CUENTA_ACTIVADA
+                : TipoActividad.PASSWORD_RESTABLECIDA;
+        eventos.publishEvent(ActividadEvent.of(tipo, u.getId(), "USUARIO", u.getId(),
+                Map.of("matricula", u.getMatricula() == null ? "" : u.getMatricula()),
+                VisibilidadActividad.PRIVADA, List.of()));
     }
 
     /** Self-request: registra una solicitud de cuenta. Siempre silenciosa hacia afuera. */
