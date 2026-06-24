@@ -19,7 +19,11 @@ import com.academconnect.domain.EstadoCuenta;
 import com.academconnect.domain.EstadoMail;
 import com.academconnect.dto.EstudianteRequest;
 import com.academconnect.dto.ImportConfirmRequest;
+import com.academconnect.domain.EstadoLote;
+import com.academconnect.domain.ResultadoFila;
 import com.academconnect.exception.BusinessException;
+import com.academconnect.exception.ResourceNotFoundException;
+import com.academconnect.repository.LoteImportacionRepository;
 import com.academconnect.repository.MailPendienteRepository;
 import com.academconnect.repository.UsuarioRepository;
 
@@ -33,6 +37,7 @@ class ImportacionUsuariosServiceTests {
     @Autowired UsuarioRepository usuarioRepository;
     @Autowired EstudianteService estudianteService;
     @Autowired MailPendienteRepository mailRepo;
+    @Autowired LoteImportacionRepository loteRepo;
 
     private Long adminId() {
         return usuarioRepository.findByEmail("admin-import@academ.test").orElseGet(() -> {
@@ -152,6 +157,49 @@ class ImportacionUsuariosServiceTests {
         service.confirmar(p.loteId(), new ImportConfirmRequest(false), admin);
         org.junit.jupiter.api.Assertions.assertThrows(BusinessException.class,
                 () -> service.confirmar(p.loteId(), new ImportConfirmRequest(false), admin));
+    }
+
+    @Test
+    void colisionCruzadaEmailDeUnoMatriculaDeOtroClasificaMatricula() {
+        // userA tiene el email a@x.test; userB tiene la matrícula M-B.
+        crearActivaConMatricula("a@x.test", "M-A");
+        crearActivaConMatricula("b@x.test", "M-B");
+
+        String csv = "email,matricula,nombre\na@x.test,M-B,Nombre\n";
+        var preview = service.preview("p.csv", csv.getBytes(StandardCharsets.UTF_8), adminId());
+
+        // Prioridad de ramas: par exacto -> matrícula -> email -> nuevo.
+        // No es par exacto (email de A, matrícula de B) => COLISION_MATRICULA, no EXISTE.
+        assertThat(preview.items().get(0).resultado()).isEqualTo(ResultadoFila.COLISION_MATRICULA);
+        assertThat(preview.nuevos()).isZero();
+        assertThat(preview.existentes()).isZero();
+    }
+
+    @Test
+    void duplicadoEnArchivoSegundaFilaEsColisionYConfirmCreaUnaSola() {
+        Long admin = adminId();
+        String csv = String.join("\n", "email,matricula,nombre",
+                "dup@academ.test,M-DUP1,Uno",   // NUEVO
+                "dup@academ.test,M-DUP2,Dos");   // COLISION_EMAIL (email repetido en el archivo)
+        var preview = service.preview("p.csv", csv.getBytes(StandardCharsets.UTF_8), admin);
+
+        assertThat(preview.items().get(0).resultado()).isEqualTo(ResultadoFila.NUEVO);
+        assertThat(preview.items().get(1).resultado()).isEqualTo(ResultadoFila.COLISION_EMAIL);
+        assertThat(preview.nuevos()).isEqualTo(1);
+        assertThat(preview.errores()).isGreaterThanOrEqualTo(1);
+
+        long antes = usuarioRepository.count();
+        service.confirmar(preview.loteId(), new ImportConfirmRequest(false), admin); // no debe romper por UNIQUE
+        assertThat(usuarioRepository.count() - antes).isEqualTo(1);
+        assertThat(loteRepo.findById(preview.loteId()).orElseThrow().getEstado())
+                .isEqualTo(EstadoLote.CONFIRMADO);
+    }
+
+    @Test
+    void confirmarLoteInexistenteLanzaResourceNotFound() {
+        Long admin = adminId();
+        org.junit.jupiter.api.Assertions.assertThrows(ResourceNotFoundException.class,
+                () -> service.confirmar(999_999_999L, new ImportConfirmRequest(false), admin));
     }
 
     @Test

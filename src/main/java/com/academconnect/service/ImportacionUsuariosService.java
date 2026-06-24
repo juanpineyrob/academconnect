@@ -4,9 +4,11 @@ import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
@@ -61,6 +63,9 @@ public class ImportacionUsuariosService {
 
         List<ImportItemResponse> respuestas = new ArrayList<>();
         int nuevos = 0, existentes = 0, errores = 0, total = 0;
+        // Dedup intra-archivo: misma normalización que los lookups (email lower+trim, matrícula trim).
+        Set<String> emailsVistos = new HashSet<>();
+        Set<String> matriculasVistas = new HashSet<>();
 
         try (CSVParser parser = CSVFormat.DEFAULT.builder()
                 .setHeader().setSkipHeaderRecord(true).setTrim(true)
@@ -91,7 +96,23 @@ public class ImportacionUsuariosService {
                     item.setResultado(ResultadoFila.ERROR_FORMATO);
                     item.setDetalle("Campos vacíos");
                     errores++;
+                } else if (emailsVistos.contains(email)) {
+                    item.setEmail(email);
+                    item.setMatricula(matricula);
+                    item.setNombre(nombre);
+                    item.setResultado(ResultadoFila.COLISION_EMAIL);
+                    item.setDetalle("Email duplicado en el archivo");
+                    errores++;
+                } else if (matriculasVistas.contains(matricula)) {
+                    item.setEmail(email);
+                    item.setMatricula(matricula);
+                    item.setNombre(nombre);
+                    item.setResultado(ResultadoFila.COLISION_MATRICULA);
+                    item.setDetalle("Matrícula duplicada en el archivo");
+                    errores++;
                 } else {
+                    emailsVistos.add(email);
+                    matriculasVistas.add(matricula);
                     item.setEmail(email);
                     item.setMatricula(matricula);
                     item.setNombre(nombre);
@@ -149,6 +170,11 @@ public class ImportacionUsuariosService {
         for (LoteImportacionItem item : lote.getItems()) {
             switch (item.getResultado()) {
                 case NUEVO -> {
+                    // Re-chequeo TOCTOU: la cuenta pudo crearse entre el preview y el confirm.
+                    if (usuarioRepository.existsByEmail(item.getEmail())
+                            || usuarioRepository.existsByMatricula(item.getMatricula())) {
+                        break;
+                    }
                     Estudiante u = new Estudiante();
                     u.setEmail(item.getEmail());
                     u.setMatricula(item.getMatricula());
