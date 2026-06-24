@@ -71,6 +71,8 @@ public class RecomendadorServiceTests {
         ReflectionTestUtils.setField(service, "w1", 0.6);
         ReflectionTestUtils.setField(service, "w2", 0.3);
         ReflectionTestUtils.setField(service, "w3", 0.1);
+        ReflectionTestUtils.setField(service, "wo1", 0.7);
+        ReflectionTestUtils.setField(service, "wo2", 0.3);
 
         trabajoId = 99L;
         area1 = AreaTematicaFactory.createArea(10L);
@@ -151,6 +153,69 @@ public class RecomendadorServiceTests {
         List<SugerenciaEvaluadorResponse> sugerencias = service.sugerirRevisores(trabajoId, 2);
 
         Assertions.assertEquals(2, sugerencias.size());
+    }
+
+    @Test
+    void sugerirOrientadores_rankeaPorAfinidadJaccard() {
+        Mockito.when(trabajoRepository.findById(trabajoId)).thenReturn(Optional.of(trabajoConAreas));
+        Mockito.when(profesorRepository.findByActivo(true))
+                .thenReturn(List.of(profesor1, profesor2));
+        // profesor1 comparte area1+area2 (afinidad alta); profesor2 sólo otraArea (afinidad 0)
+        Mockito.when(uatRepository.findByIdUsuarioId(profesor1.getId()))
+                .thenReturn(List.of(uat(profesor1, area1), uat(profesor1, area2)));
+        Mockito.when(uatRepository.findByIdUsuarioId(profesor2.getId()))
+                .thenReturn(List.of(uat(profesor2, otraArea)));
+        Mockito.when(trabajoRepository.countByOrientadorIdAndEstadoNotIn(
+                Mockito.anyLong(), Mockito.anyCollection())).thenReturn(0L);
+
+        var res = service.sugerirOrientadores(trabajoId);
+
+        Assertions.assertEquals(2, res.size());
+        Assertions.assertEquals(profesor1.getId(), res.get(0).id());
+        Assertions.assertTrue(
+                res.get(0).afinidad().compareTo(res.get(1).afinidad()) > 0);
+    }
+
+    @Test
+    void sugerirOrientadores_aIgualAfinidadPrefiereMenorCarga() {
+        Mockito.when(trabajoRepository.findById(trabajoId)).thenReturn(Optional.of(trabajoConAreas));
+        Mockito.when(profesorRepository.findByActivo(true))
+                .thenReturn(List.of(profesor1, profesor2));
+        // misma afinidad (ambos comparten area1+area2)
+        Mockito.when(uatRepository.findByIdUsuarioId(Mockito.anyLong()))
+                .thenReturn(List.of(uat(profesor1, area1), uat(profesor1, area2)));
+        Mockito.when(trabajoRepository.countByOrientadorIdAndEstadoNotIn(
+                Mockito.eq(profesor1.getId()), Mockito.anyCollection())).thenReturn(5L);
+        Mockito.when(trabajoRepository.countByOrientadorIdAndEstadoNotIn(
+                Mockito.eq(profesor2.getId()), Mockito.anyCollection())).thenReturn(0L);
+
+        var res = service.sugerirOrientadores(trabajoId);
+
+        Assertions.assertEquals(profesor2.getId(), res.get(0).id());
+        Assertions.assertEquals(0L, res.get(0).cargaActiva());
+    }
+
+    @Test
+    void sugerirOrientadores_excluyeAlOrientadorActual() {
+        trabajoConAreas.setOrientador(profesor1);
+        Mockito.when(trabajoRepository.findById(trabajoId)).thenReturn(Optional.of(trabajoConAreas));
+        Mockito.when(profesorRepository.findByActivo(true))
+                .thenReturn(List.of(profesor1, profesor2));
+        Mockito.when(uatRepository.findByIdUsuarioId(Mockito.anyLong()))
+                .thenReturn(List.of(uat(profesor2, area1)));
+        Mockito.when(trabajoRepository.countByOrientadorIdAndEstadoNotIn(
+                Mockito.anyLong(), Mockito.anyCollection())).thenReturn(0L);
+
+        var res = service.sugerirOrientadores(trabajoId);
+
+        Assertions.assertEquals(1, res.size());
+        Assertions.assertEquals(profesor2.getId(), res.get(0).id());
+    }
+
+    private com.academconnect.domain.UsuarioAreaTematica uat(
+            Profesor p, AreaTematica area) {
+        return new com.academconnect.domain.UsuarioAreaTematica(
+                p, area, com.academconnect.domain.NivelExperticia.MEDIO);
     }
 
     private Trabajo buildTrabajoConAreas(Set<AreaTematica> areas) {

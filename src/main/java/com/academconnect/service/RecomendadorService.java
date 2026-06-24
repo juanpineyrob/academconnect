@@ -15,10 +15,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.academconnect.domain.AreaTematica;
 import com.academconnect.domain.EstadoAsignacion;
+import com.academconnect.domain.EstadoTrabajo;
+import com.academconnect.domain.Profesor;
 import com.academconnect.domain.RecomendacionEvaluador;
 import com.academconnect.domain.Usuario;
 import com.academconnect.dto.SugerenciaEvaluadorResponse;
+import com.academconnect.dto.SugerenciaOrientadorResponse;
 import com.academconnect.exception.ResourceNotFoundException;
 import com.academconnect.repository.AsignacionRepository;
 import com.academconnect.repository.ConflictoInteresRepository;
@@ -39,6 +43,11 @@ public class RecomendadorService {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
+    private static final List<EstadoTrabajo> ESTADOS_FINALIZADOS = List.of(
+            EstadoTrabajo.APROBADO,
+            EstadoTrabajo.RECHAZADO,
+            EstadoTrabajo.CANCELADO);
+
     @Value("${academconnect.algoritmo.w1:0.6}")
     private double w1;
 
@@ -47,6 +56,12 @@ public class RecomendadorService {
 
     @Value("${academconnect.algoritmo.w3:0.1}")
     private double w3;
+
+    @Value("${academconnect.algoritmo.orientador.w1:0.7}")
+    private double wo1;
+
+    @Value("${academconnect.algoritmo.orientador.w2:0.3}")
+    private double wo2;
 
     private final TrabajoRepository trabajoRepository;
     private final ProfesorRepository profesorRepository;
@@ -130,6 +145,60 @@ public class RecomendadorService {
         }).toList();
 
         recomendacionRepository.saveAll(entidades);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SugerenciaOrientadorResponse> sugerirOrientadores(Long trabajoId) {
+        var trabajo = trabajoRepository.findById(trabajoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trabajo", trabajoId));
+
+        Set<Long> areasTrabajoIds = trabajo.getAreas().stream()
+                .map(AreaTematica::getId)
+                .collect(Collectors.toSet());
+
+        Long orientadorActualId = trabajo.getOrientador() == null
+                ? null : trabajo.getOrientador().getId();
+
+        List<Profesor> candidatos = profesorRepository.findByActivo(true).stream()
+                .filter(p -> orientadorActualId == null || !p.getId().equals(orientadorActualId))
+                .toList();
+
+        Map<Long, Long> cargas = candidatos.stream()
+                .collect(Collectors.toMap(
+                        Profesor::getId,
+                        p -> trabajoRepository.countByOrientadorIdAndEstadoNotIn(
+                                p.getId(), ESTADOS_FINALIZADOS)));
+
+        long maxCarga = cargas.values().stream().max(Comparator.naturalOrder()).orElse(0L);
+
+        return candidatos.stream()
+                .map(p -> puntuarOrientador(p, areasTrabajoIds, cargas.get(p.getId()), maxCarga))
+                .sorted((a, b) -> {
+                    int c = b.score().compareTo(a.score());
+                    return c != 0 ? c : a.nombre().compareTo(b.nombre());
+                })
+                .toList();
+    }
+
+    private SugerenciaOrientadorResponse puntuarOrientador(
+            Profesor p, Set<Long> areasTrabajoIds, long carga, long maxCarga) {
+
+        var uats = uatRepository.findByIdUsuarioId(p.getId());
+        Set<Long> areasProfe = uats.stream()
+                .map(u -> u.getId().getAreaId())
+                .collect(Collectors.toSet());
+        List<String> areasNombres = uats.stream()
+                .map(u -> u.getArea().getNombre())
+                .sorted(Comparator.nullsFirst(Comparator.naturalOrder()))
+                .toList();
+
+        double afinidad = jaccard(areasTrabajoIds, areasProfe);
+        double cargaNorm = maxCarga == 0 ? 0.0 : (double) carga / maxCarga;
+        double score = wo1 * afinidad + wo2 * (1.0 - cargaNorm);
+
+        return new SugerenciaOrientadorResponse(
+                p.getId(), p.getNombre(), p.getEmail(),
+                areasNombres, carga, bd4(afinidad), bd4(score));
     }
 
     private double jaccard(Set<Long> a, Set<Long> b) {
