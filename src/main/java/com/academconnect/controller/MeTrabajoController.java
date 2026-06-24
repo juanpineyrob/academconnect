@@ -31,6 +31,7 @@ public class MeTrabajoController {
 
     private final TrabajoService service;
     private final UsuarioRepository usuarioRepository;
+    private final com.academconnect.service.RecomendadorService recomendadorService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -63,6 +64,18 @@ public class MeTrabajoController {
             throw new ResourceNotFoundException("Trabajo", id);
         }
         return trabajo;
+    }
+
+    @GetMapping("/{id}/sugerir-orientadores")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public java.util.List<com.academconnect.dto.SugerenciaOrientadorResponse> sugerirOrientadores(
+            @PathVariable Long id, Authentication authn) {
+        var trabajo = service.buscarPorId(id);
+        if (trabajo.estudianteId() == null
+                || !trabajo.estudianteId().equals(currentUserId(authn))) {
+            throw new ResourceNotFoundException("Trabajo", id);
+        }
+        return recomendadorService.sugerirOrientadores(id);
     }
 
     private Long currentUserId(Authentication authn) {
