@@ -34,6 +34,9 @@ public interface TrabajoRepository
 
     long countByOrientadorIdAndEstado(Long orientadorId, EstadoTrabajo estado);
 
+    /** Carga de un orientador: trabajos suyos cuyo estado NO está en la lista dada (los activos). */
+    long countByOrientadorIdAndEstadoNotIn(Long orientadorId, java.util.Collection<EstadoTrabajo> estados);
+
     @Query("SELECT new com.academconnect.dto.TrabajosPorEstadoDto(t.estado, COUNT(t)) FROM Trabajo t GROUP BY t.estado")
     List<TrabajosPorEstadoDto> contarPorEstado();
 
