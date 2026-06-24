@@ -16,10 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.academconnect.domain.EstadoCuenta;
 import com.academconnect.domain.Usuario;
 import com.academconnect.dto.AuthResponse;
-import com.academconnect.dto.EstudianteRequest;
-import com.academconnect.dto.ExternoRequest;
 import com.academconnect.dto.LoginRequest;
-import com.academconnect.dto.ProfesorRequest;
 import com.academconnect.exception.BusinessException;
 import com.academconnect.repository.UsuarioRepository;
 
@@ -31,9 +28,6 @@ import lombok.RequiredArgsConstructor;
 public class AuthService {
 
     private final UsuarioRepository usuarioRepository;
-    private final EstudianteService estudianteService;
-    private final ProfesorService profesorService;
-    private final ExternoService externoService;
     private final PasswordEncoder passwordEncoder;
     private final JwtEncoder jwtEncoder;
 
@@ -52,27 +46,6 @@ public class AuthService {
         if (!usuario.isActivo()) {
             throw new BusinessException("Cuenta desactivada. Contacte al administrador.");
         }
-        return buildResponse(usuario);
-    }
-
-    @Transactional
-    public AuthResponse registerEstudiante(EstudianteRequest request) {
-        var resp = estudianteService.crear(request);
-        var usuario = usuarioRepository.findById(resp.id()).orElseThrow();
-        return buildResponse(usuario);
-    }
-
-    @Transactional
-    public AuthResponse registerProfesor(ProfesorRequest request) {
-        var resp = profesorService.crear(request);
-        var usuario = usuarioRepository.findById(resp.id()).orElseThrow();
-        return buildResponse(usuario);
-    }
-
-    @Transactional
-    public AuthResponse registerExterno(ExternoRequest request) {
-        var resp = externoService.crear(request);
-        var usuario = usuarioRepository.findById(resp.id()).orElseThrow();
         return buildResponse(usuario);
     }
 

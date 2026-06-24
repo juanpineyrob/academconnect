@@ -15,10 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.academconnect.config.CookieBearerTokenResolver;
 import com.academconnect.dto.AuthResponse;
-import com.academconnect.dto.EstudianteRequest;
-import com.academconnect.dto.ExternoRequest;
 import com.academconnect.dto.LoginRequest;
-import com.academconnect.dto.ProfesorRequest;
 import com.academconnect.service.AuthService;
 
 import jakarta.validation.Valid;
@@ -55,24 +52,6 @@ public class AuthController {
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, buildJwtCookie("", 0).toString())
                 .build();
-    }
-
-    @PostMapping("/register/estudiante")
-    @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse registerEstudiante(@Valid @RequestBody EstudianteRequest request) {
-        return authService.registerEstudiante(request);
-    }
-
-    @PostMapping("/register/profesor")
-    @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse registerProfesor(@Valid @RequestBody ProfesorRequest request) {
-        return authService.registerProfesor(request);
-    }
-
-    @PostMapping("/register/externo")
-    @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse registerExterno(@Valid @RequestBody ExternoRequest request) {
-        return authService.registerExterno(request);
     }
 
     private ResponseCookie buildJwtCookie(String value, long maxAgeSeconds) {
