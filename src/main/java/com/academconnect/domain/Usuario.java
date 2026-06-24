@@ -47,6 +47,10 @@ public abstract class Usuario extends BaseEntity {
     @Column(name = "estado_cuenta", nullable = false, length = 20)
     private EstadoCuenta estadoCuenta = EstadoCuenta.ACTIVA;
 
+    /** Vínculo opcional al lote de importación masiva que creó esta cuenta. */
+    @Column(name = "lote_importacion_id")
+    private Long loteImportacionId;
+
     private Integer edad;
 
     @Column(length = 200)
