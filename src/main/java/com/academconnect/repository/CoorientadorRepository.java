@@ -11,4 +11,6 @@ public interface CoorientadorRepository extends JpaRepository<Coorientador, Long
     List<Coorientador> findByTrabajoId(Long trabajoId);
 
     List<Coorientador> findByUsuarioId(Long usuarioId);
+
+    long countByTrabajoId(Long trabajoId);
 }
