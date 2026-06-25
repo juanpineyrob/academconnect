@@ -39,14 +39,14 @@ class TipoTrabajoConfigServiceTests {
     }
 
     private TipoTrabajoConfigRequest req(List<InstanciaEvaluacionConfigInput> instancias) {
-        return new TipoTrabajoConfigRequest(ModoEvaluacion.SINCRONO, 3, instancias);
+        return new TipoTrabajoConfigRequest(ModoEvaluacion.SINCRONO, 3, true, instancias);
     }
 
     @Test
     void actualizar_reemplazaInstanciasConOrdenContiguo() {
         var req = req(List.of(
-                new InstanciaEvaluacionConfigInput("TCC1", 2),
-                new InstanciaEvaluacionConfigInput("TCC2", 2)));
+                new InstanciaEvaluacionConfigInput("TCC1", 2, 1),
+                new InstanciaEvaluacionConfigInput("TCC2", 2, 1)));
 
         service.actualizar(TipoTrabajo.TCC, req);
 
@@ -91,5 +91,16 @@ class TipoTrabajoConfigServiceTests {
         Assertions.assertEquals(1, resp.instancias().size());
         Assertions.assertEquals("TCC1", resp.instancias().get(0).nombre());
         Assertions.assertEquals(0, resp.instancias().get(0).orden());
+    }
+
+    @Test
+    void actualizar_persisteSecuencialYMaxIntentos() {
+        var req = new TipoTrabajoConfigRequest(ModoEvaluacion.SINCRONO, 3, false,
+                List.of(new InstanciaEvaluacionConfigInput("TCC1", 2, 3)));
+        var resp = service.actualizar(TipoTrabajo.TCC, req);
+        Assertions.assertFalse(resp.secuencial());
+        ArgumentCaptor<List<InstanciaEvaluacionConfig>> cap = ArgumentCaptor.forClass(List.class);
+        Mockito.verify(instanciaRepository).saveAll(cap.capture());
+        Assertions.assertEquals(3, cap.getValue().get(0).getMaxIntentos());
     }
 }

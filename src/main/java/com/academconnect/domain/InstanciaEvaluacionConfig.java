@@ -28,4 +28,7 @@ public class InstanciaEvaluacionConfig extends BaseEntity {
 
     @Column(name = "evaluadores_requeridos", nullable = false)
     private int evaluadoresRequeridos;
+
+    @Column(name = "max_intentos", nullable = false)
+    private int maxIntentos = 1;
 }

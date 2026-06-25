@@ -7,5 +7,6 @@ import jakarta.validation.constraints.Size;
 
 public record InstanciaEvaluacionConfigInput(
         @NotBlank @Size(max = 200) String nombre,
-        @NotNull @Min(1) Integer evaluadoresRequeridos) {
+        @NotNull @Min(1) Integer evaluadoresRequeridos,
+        @NotNull @Min(1) Integer maxIntentos) {
 }

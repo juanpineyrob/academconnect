@@ -35,10 +35,10 @@ class TipoTrabajoConfigServiceIT {
         // TCC is seeded by V28 with orden 0 and 1 — first call already exercises
         // delete+reinsert over existing rows (the constraint-violation scenario).
         var req1 = new TipoTrabajoConfigRequest(
-                ModoEvaluacion.SINCRONO, 2,
+                ModoEvaluacion.SINCRONO, 2, true,
                 List.of(
-                        new InstanciaEvaluacionConfigInput("TCC1", 2),
-                        new InstanciaEvaluacionConfigInput("TCC2", 2)));
+                        new InstanciaEvaluacionConfigInput("TCC1", 2, 1),
+                        new InstanciaEvaluacionConfigInput("TCC2", 2, 1)));
 
         assertThatNoException()
                 .isThrownBy(() -> service.actualizar(TipoTrabajo.TCC, req1));
@@ -46,10 +46,10 @@ class TipoTrabajoConfigServiceIT {
         // Second call — the explicit regression: a re-PUT after the first write
         // must not throw a UniqueConstraintViolationException.
         var req2 = new TipoTrabajoConfigRequest(
-                ModoEvaluacion.SINCRONO, 3,
+                ModoEvaluacion.SINCRONO, 3, true,
                 List.of(
-                        new InstanciaEvaluacionConfigInput("TCC1-v2", 2),
-                        new InstanciaEvaluacionConfigInput("TCC2-v2", 3)));
+                        new InstanciaEvaluacionConfigInput("TCC1-v2", 2, 1),
+                        new InstanciaEvaluacionConfigInput("TCC2-v2", 3, 1)));
 
         assertThatNoException()
                 .isThrownBy(() -> service.actualizar(TipoTrabajo.TCC, req2));

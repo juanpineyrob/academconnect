@@ -10,5 +10,6 @@ import java.util.List;
 public record TipoTrabajoConfigRequest(
         @NotNull ModoEvaluacion modoEvaluacion,
         @NotNull @Min(1) Integer evaluadoresDefault,
+        boolean secuencial,
         @Valid List<InstanciaEvaluacionConfigInput> instancias) {
 }

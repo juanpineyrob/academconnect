@@ -8,5 +8,6 @@ public record TipoTrabajoConfigResponse(
         TipoTrabajo tipo,
         ModoEvaluacion modoEvaluacion,
         int evaluadoresDefault,
-        List<InstanciaEvaluacionConfigDto> instancias) {
+        List<InstanciaEvaluacionConfigDto> instancias,
+        boolean secuencial) {
 }

@@ -29,4 +29,7 @@ public class TipoTrabajoConfig {
 
     @Column(name = "evaluadores_default", nullable = false)
     private int evaluadoresDefault = 3;
+
+    @Column(nullable = false)
+    private boolean secuencial = true;
 }

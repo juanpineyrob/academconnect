@@ -45,6 +45,7 @@ public class TipoTrabajoConfigService {
         });
         config.setModoEvaluacion(request.modoEvaluacion());
         config.setEvaluadoresDefault(request.evaluadoresDefault());
+        config.setSecuencial(request.secuencial());
         var savedConfig = repository.save(config);
 
         instanciaRepository.deleteByTipo(tipo);
@@ -59,6 +60,7 @@ public class TipoTrabajoConfigService {
             inst.setOrden(i);
             inst.setNombre(in.nombre());
             inst.setEvaluadoresRequeridos(in.evaluadoresRequeridos());
+            inst.setMaxIntentos(in.maxIntentos());
             nuevas.add(inst);
         }
         instanciaRepository.saveAll(nuevas);
@@ -70,9 +72,9 @@ public class TipoTrabajoConfigService {
         List<InstanciaEvaluacionConfigDto> instancias =
                 instanciaRepository.findByTipoOrderByOrden(c.getTipo()).stream()
                         .map(i -> new InstanciaEvaluacionConfigDto(
-                                i.getOrden(), i.getNombre(), i.getEvaluadoresRequeridos()))
+                                i.getOrden(), i.getNombre(), i.getEvaluadoresRequeridos(), i.getMaxIntentos()))
                         .toList();
         return new TipoTrabajoConfigResponse(
-                c.getTipo(), c.getModoEvaluacion(), c.getEvaluadoresDefault(), instancias);
+                c.getTipo(), c.getModoEvaluacion(), c.getEvaluadoresDefault(), instancias, c.isSecuencial());
     }
 }
