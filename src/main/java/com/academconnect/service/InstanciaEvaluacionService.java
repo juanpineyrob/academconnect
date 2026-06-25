@@ -5,6 +5,7 @@ import com.academconnect.domain.EstadoTrabajo;
 import com.academconnect.domain.InstanciaEvaluacion;
 import com.academconnect.domain.InstanciaEvaluacionConfig;
 import com.academconnect.domain.Trabajo;
+import com.academconnect.dto.InstanciaEvaluacionDto;
 import com.academconnect.repository.InstanciaEvaluacionConfigRepository;
 import com.academconnect.repository.InstanciaEvaluacionRepository;
 import com.academconnect.repository.TipoTrabajoConfigRepository;
@@ -26,6 +27,19 @@ public class InstanciaEvaluacionService {
     private final InstanciaEvaluacionConfigRepository configRepository;
     private final TipoTrabajoConfigRepository tipoTrabajoConfigRepository;
     private final TrabajoRepository trabajoRepository;
+
+    @Transactional(readOnly = true)
+    public List<InstanciaEvaluacionDto> listarInstancias(Long trabajoId) {
+        return repository.findByTrabajoIdOrderByOrdenAscIntentoAsc(trabajoId).stream()
+                .map(ie -> new InstanciaEvaluacionDto(
+                        ie.getId(),
+                        ie.getInstanciaConfig().getNombre(),
+                        ie.getOrden(),
+                        ie.getIntento(),
+                        ie.getEstado().name(),
+                        ie.getPuntajeAgregado()))
+                .toList();
+    }
 
     /** Materializa la primera instancia (orden 0) si el tipo tiene config y no hay activa. */
     public Optional<InstanciaEvaluacion> materializarInicial(Trabajo trabajo) {

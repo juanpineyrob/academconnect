@@ -1,6 +1,7 @@
 package com.academconnect.service;
 
 import com.academconnect.domain.*;
+import com.academconnect.dto.InstanciaEvaluacionDto;
 import com.academconnect.repository.*;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -195,5 +196,30 @@ class InstanciaEvaluacionServiceTests {
 
         Assertions.assertEquals(EstadoInstanciaEvaluacion.APROBADA, ie.getEstado());
         Mockito.verify(repository, Mockito.never()).save(Mockito.any());
+    }
+
+    @Test
+    void listarInstancias_mapeaRepoADto() {
+        var ie0 = inst(c0, 1, EstadoInstanciaEvaluacion.PENDIENTE);
+        ie0.setId(10L);
+        var ie1 = inst(c1, 1, EstadoInstanciaEvaluacion.APROBADA);
+        ie1.setId(11L);
+        ie1.setPuntajeAgregado(new BigDecimal("8.50"));
+        Mockito.when(repository.findByTrabajoIdOrderByOrdenAscIntentoAsc(100L))
+                .thenReturn(List.of(ie0, ie1));
+
+        List<InstanciaEvaluacionDto> result = service.listarInstancias(100L);
+
+        Assertions.assertEquals(2, result.size());
+        Assertions.assertEquals(10L, result.get(0).id());
+        Assertions.assertEquals("TCC1", result.get(0).nombre());
+        Assertions.assertEquals(0, result.get(0).orden());
+        Assertions.assertEquals(1, result.get(0).intento());
+        Assertions.assertEquals("PENDIENTE", result.get(0).estado());
+        Assertions.assertNull(result.get(0).puntajeAgregado());
+        Assertions.assertEquals(11L, result.get(1).id());
+        Assertions.assertEquals("TCC2", result.get(1).nombre());
+        Assertions.assertEquals("APROBADA", result.get(1).estado());
+        Assertions.assertEquals(new BigDecimal("8.50"), result.get(1).puntajeAgregado());
     }
 }

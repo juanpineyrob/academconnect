@@ -34,6 +34,7 @@ public class MeTrabajoController {
     private final com.academconnect.service.RecomendadorService recomendadorService;
     private final com.academconnect.repository.TipoTrabajoConfigRepository tipoTrabajoConfigRepository;
     private final com.academconnect.repository.TrabajoRepository trabajoRepository;
+    private final com.academconnect.service.InstanciaEvaluacionService instanciaEvaluacionService;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -95,6 +96,17 @@ public class MeTrabajoController {
                 .orElse(3);
         return new com.academconnect.dto.SugerenciaBancaResponse(
                 n, recomendadorService.sugerirRevisores(id, n));
+    }
+
+    @GetMapping("/{id}/instancias-evaluacion")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public List<com.academconnect.dto.InstanciaEvaluacionDto> listarInstanciasEvaluacion(
+            @PathVariable Long id, Authentication authn) {
+        var trabajo = service.buscarPorId(id);
+        if (trabajo.estudianteId() == null || !trabajo.estudianteId().equals(currentUserId(authn))) {
+            throw new ResourceNotFoundException("Trabajo", id);
+        }
+        return instanciaEvaluacionService.listarInstancias(id);
     }
 
     private Long currentUserId(Authentication authn) {
