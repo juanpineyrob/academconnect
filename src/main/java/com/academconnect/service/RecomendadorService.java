@@ -186,15 +186,17 @@ public class RecomendadorService {
 
         long maxCarga = cargas.values().stream().max(Comparator.naturalOrder()).orElse(0L);
 
+        double g = gini(cargas.values());
+
         return candidatos.stream()
-                .map(p -> puntuarOrientador(p, areasTrabajoIds, cargas.get(p.getId()), maxCarga))
+                .map(p -> puntuarOrientador(p, areasTrabajoIds, cargas.get(p.getId()), maxCarga, g))
                 .sorted(Comparator.comparing(SugerenciaOrientadorResponse::score).reversed()
                         .thenComparing(SugerenciaOrientadorResponse::nombre))
                 .toList();
     }
 
     private SugerenciaOrientadorResponse puntuarOrientador(
-            Profesor p, Set<Long> areasTrabajoIds, long carga, long maxCarga) {
+            Profesor p, Set<Long> areasTrabajoIds, long carga, long maxCarga, double gini) {
 
         var uats = uatRepository.findByIdUsuarioId(p.getId());
         Set<Long> areasProfe = uats.stream()
@@ -208,7 +210,11 @@ public class RecomendadorService {
 
         double afinidad = jaccard(areasTrabajoIds, areasProfe);
         double cargaNorm = maxCarga == 0 ? 0.0 : (double) carga / maxCarga;
-        double score = wo1 * afinidad + wo2 * (1.0 - cargaNorm);
+
+        double f = wmin + (wmax - wmin) * gini;   // wo1+wo2 = 1, así que el bloque entero es 1
+        double wCargaEff = f;
+        double wAfinEff = 1.0 - f;
+        double score = wAfinEff * afinidad + wCargaEff * (1.0 - cargaNorm);
 
         return new SugerenciaOrientadorResponse(
                 p.getId(), p.getNombre(), p.getEmail(),

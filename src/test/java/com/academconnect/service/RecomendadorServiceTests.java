@@ -258,6 +258,23 @@ public class RecomendadorServiceTests {
         Assertions.assertEquals(profesor2.getId(), res.get(0).evaluadorId()); // menor carga primero
     }
 
+    @Test
+    void sugerirOrientadores_giniDesbalanceadoPrefiereMenorCarga() {
+        // misma afinidad (ambos comparten area1+area2); cargas desbalanceadas.
+        Mockito.when(trabajoRepository.findById(trabajoId)).thenReturn(Optional.of(trabajoConAreas));
+        Mockito.when(profesorRepository.findByActivo(true)).thenReturn(List.of(profesor1, profesor2));
+        Mockito.when(uatRepository.findByIdUsuarioId(Mockito.anyLong()))
+                .thenReturn(List.of(uat(profesor1, area1), uat(profesor1, area2)));
+        Mockito.when(trabajoRepository.countByOrientadorIdAndEstadoNotIn(
+                Mockito.eq(profesor1.getId()), Mockito.anyCollection())).thenReturn(10L);
+        Mockito.when(trabajoRepository.countByOrientadorIdAndEstadoNotIn(
+                Mockito.eq(profesor2.getId()), Mockito.anyCollection())).thenReturn(0L);
+
+        var res = service.sugerirOrientadores(trabajoId);
+
+        Assertions.assertEquals(profesor2.getId(), res.get(0).id()); // menor carga primero
+    }
+
     private double invocarGini(java.util.Collection<Long> cargas) {
         return (double) ReflectionTestUtils.invokeMethod(service, "gini", cargas);
     }
