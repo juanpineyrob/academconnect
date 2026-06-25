@@ -35,6 +35,7 @@ public class SolicitudVinculacionService {
     private final SolicitudVinculacionMapper mapper;
     private final ApplicationEventPublisher events;
     private final TrabajoService trabajoService;
+    private final InstanciaEvaluacionService instanciaEvaluacionService;
 
     public SolicitudVinculacionResponse buscarPorId(Long id) {
         return solicitudRepository.findById(id)
@@ -117,6 +118,7 @@ public class SolicitudVinculacionService {
         trabajo.setEstudiante(solicitud.getEstudiante());
         trabajo.setEstado(EstadoTrabajo.EN_DESARROLLO);
         trabajoRepository.save(trabajo);
+        instanciaEvaluacionService.materializarInicial(trabajo);
 
         trabajoService.autoRechazarPendientes(trabajo, "Posición ocupada");
 

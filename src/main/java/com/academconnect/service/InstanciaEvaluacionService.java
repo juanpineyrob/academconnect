@@ -97,6 +97,11 @@ public class InstanciaEvaluacionService {
         cerrar(instancia, EstadoInstanciaEvaluacion.REPROBADA, puntaje);
         var trabajo = instancia.getTrabajo();
         if (instancia.getIntento() < instancia.getInstanciaConfig().getMaxIntentos()) {
+            // Flush the UPDATE (cerrar) to the DB before the INSERT (materializar) to avoid
+            // violating uq_instancia_eval_abierta: Hibernate's default flush sends INSERTs
+            // before UPDATEs, which would momentarily leave two open rows for the same
+            // (trabajo_id, instancia_config_id).
+            repository.flush();
             materializar(trabajo, instancia.getInstanciaConfig(), instancia.getIntento() + 1);
         } else {
             rechazarTrabajo(trabajo);

@@ -1,16 +1,17 @@
 package com.academconnect.service;
 
 import com.academconnect.domain.EstadoSolicitud;
+import com.academconnect.domain.EstadoTrabajo;
 import com.academconnect.domain.Estudiante;
 import com.academconnect.domain.SolicitudVinculacion;
 import com.academconnect.domain.Trabajo;
+import com.academconnect.domain.TipoTrabajo;
 import com.academconnect.exception.BusinessException;
 import com.academconnect.factories.UsuarioFactory;
 import com.academconnect.mapper.SolicitudVinculacionMapper;
 import com.academconnect.repository.EstudianteRepository;
 import com.academconnect.repository.SolicitudVinculacionRepository;
 import com.academconnect.repository.TrabajoRepository;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,9 +25,16 @@ import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class SolicitudVinculacionServiceCancelarTests {
+class SolicitudVinculacionServiceAceptarTests {
 
     @InjectMocks private SolicitudVinculacionService service;
     @Mock private SolicitudVinculacionRepository solicitudRepository;
@@ -46,32 +54,53 @@ class SolicitudVinculacionServiceCancelarTests {
         estudiante = UsuarioFactory.createEstudiante(10L, "alumno@x.uy");
         trabajo = new Trabajo();
         trabajo.setId(100L);
-        trabajo.setTitulo("X");
+        trabajo.setTitulo("TCC de prueba");
+        trabajo.setTipo(TipoTrabajo.TCC);
+        trabajo.setEstado(EstadoTrabajo.ABIERTO);
+
         solicitud = new SolicitudVinculacion();
         solicitud.setId(500L);
         solicitud.setTrabajo(trabajo);
         solicitud.setEstudiante(estudiante);
         solicitud.setEstado(EstadoSolicitud.PENDIENTE);
-        Mockito.when(solicitudRepository.findById(500L)).thenReturn(Optional.of(solicitud));
-        Mockito.when(solicitudRepository.save(Mockito.any())).thenAnswer(i -> i.getArgument(0));
-        Mockito.when(mapper.toResponse(Mockito.any())).thenReturn(null);
+
+        when(solicitudRepository.findById(500L)).thenReturn(Optional.of(solicitud));
+        when(solicitudRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(trabajoRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+        when(mapper.toResponse(any())).thenReturn(null);
     }
 
     @Test
-    void cancelarOkMarcaCancelada() {
-        service.cancelar(500L, 10L);
-        Assertions.assertEquals(EstadoSolicitud.CANCELADA, solicitud.getEstado());
-        Assertions.assertNotNull(solicitud.getResueltaEn());
+    void aceptar_mueveTrabajoAEnDesarrolloYMaterializaInstancia() {
+        service.aceptar(500L, null);
+
+        assertEquals(EstadoTrabajo.EN_DESARROLLO, trabajo.getEstado());
+        assertEquals(estudiante, trabajo.getEstudiante());
+        // C1 fix: materializarInicial debe invocarse tras el save del trabajo
+        verify(instanciaEvaluacionService).materializarInicial(trabajo);
     }
 
     @Test
-    void cancelarFallaSiNoEsDuenio() {
-        Assertions.assertThrows(BusinessException.class, () -> service.cancelar(500L, 999L));
-    }
-
-    @Test
-    void cancelarFallaSiNoEstaPendiente() {
+    void aceptar_fallaSiSolicitudNoEstaPendiente() {
         solicitud.setEstado(EstadoSolicitud.APROBADA);
-        Assertions.assertThrows(BusinessException.class, () -> service.cancelar(500L, 10L));
+
+        assertThrows(BusinessException.class, () -> service.aceptar(500L, null));
+        verify(instanciaEvaluacionService, never()).materializarInicial(any());
+    }
+
+    @Test
+    void aceptar_fallaSiTrabajoNoEstaAbierto() {
+        trabajo.setEstado(EstadoTrabajo.EN_DESARROLLO);
+
+        assertThrows(BusinessException.class, () -> service.aceptar(500L, null));
+        verify(instanciaEvaluacionService, never()).materializarInicial(any());
+    }
+
+    @Test
+    void aceptar_fallaSiTrabajoYaTieneEstudiante() {
+        trabajo.setEstudiante(UsuarioFactory.createEstudiante(99L, "otro@x.uy"));
+
+        assertThrows(BusinessException.class, () -> service.aceptar(500L, null));
+        verify(instanciaEvaluacionService, never()).materializarInicial(any());
     }
 }
