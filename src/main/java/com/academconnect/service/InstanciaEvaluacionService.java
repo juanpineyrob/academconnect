@@ -71,6 +71,14 @@ public class InstanciaEvaluacionService {
         }
     }
 
+    /** Transiciona la instancia de PENDIENTE a EN_CURSO si aún está en ese estado. */
+    public void marcarEnCurso(InstanciaEvaluacion instancia) {
+        if (instancia.getEstado() == EstadoInstanciaEvaluacion.PENDIENTE) {
+            instancia.setEstado(EstadoInstanciaEvaluacion.EN_CURSO);
+            repository.save(instancia);
+        }
+    }
+
     public void alReprobar(InstanciaEvaluacion instancia, BigDecimal puntaje) {
         cerrar(instancia, EstadoInstanciaEvaluacion.REPROBADA, puntaje);
         var trabajo = instancia.getTrabajo();

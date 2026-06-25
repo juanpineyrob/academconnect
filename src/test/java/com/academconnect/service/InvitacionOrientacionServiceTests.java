@@ -40,6 +40,7 @@ class InvitacionOrientacionServiceTests {
     @Mock private ProfesorRepository profesorRepository;
     @Mock private InvitacionOrientacionMapper mapper;
     @Mock private ApplicationEventPublisher events;
+    @Mock private InstanciaEvaluacionService instanciaEvaluacionService;
 
     private Estudiante estudiante;
     private Profesor profesor;

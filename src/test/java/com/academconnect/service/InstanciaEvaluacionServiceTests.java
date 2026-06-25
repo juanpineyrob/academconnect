@@ -166,4 +166,34 @@ class InstanciaEvaluacionServiceTests {
         Assertions.assertNotEquals(EstadoTrabajo.APROBADO, trabajo.getEstado());
         Assertions.assertEquals(EstadoTrabajo.EN_DESARROLLO, trabajo.getEstado());
     }
+
+    @Test
+    void marcarEnCurso_pendienteTransicionaYGuarda() {
+        var ie = inst(c0, 1, EstadoInstanciaEvaluacion.PENDIENTE);
+
+        service.marcarEnCurso(ie);
+
+        Assertions.assertEquals(EstadoInstanciaEvaluacion.EN_CURSO, ie.getEstado());
+        Mockito.verify(repository).save(ie);
+    }
+
+    @Test
+    void marcarEnCurso_enCursoNoHaceNada() {
+        var ie = inst(c0, 1, EstadoInstanciaEvaluacion.EN_CURSO);
+
+        service.marcarEnCurso(ie);
+
+        Assertions.assertEquals(EstadoInstanciaEvaluacion.EN_CURSO, ie.getEstado());
+        Mockito.verify(repository, Mockito.never()).save(Mockito.any());
+    }
+
+    @Test
+    void marcarEnCurso_aprobadaNoHaceNada() {
+        var ie = inst(c0, 1, EstadoInstanciaEvaluacion.APROBADA);
+
+        service.marcarEnCurso(ie);
+
+        Assertions.assertEquals(EstadoInstanciaEvaluacion.APROBADA, ie.getEstado());
+        Mockito.verify(repository, Mockito.never()).save(Mockito.any());
+    }
 }

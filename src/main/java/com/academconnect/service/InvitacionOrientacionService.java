@@ -36,6 +36,7 @@ public class InvitacionOrientacionService {
     private final ProfesorRepository profesorRepository;
     private final InvitacionOrientacionMapper mapper;
     private final ApplicationEventPublisher events;
+    private final InstanciaEvaluacionService instanciaEvaluacionService;
 
     @Transactional
     public InvitacionOrientacionResponse crear(InvitacionOrientacionRequest request, Long estudianteId) {
@@ -98,6 +99,7 @@ public class InvitacionOrientacionService {
 
         var saved = repository.save(i);
         trabajoRepository.save(trabajo);
+        instanciaEvaluacionService.materializarInicial(trabajo);
 
         events.publishEvent(ActividadEvent.of(
                 TipoActividad.INVITACION_ORIENTACION_ACEPTADA,

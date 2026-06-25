@@ -57,6 +57,7 @@ class SolicitudEvaluacionServiceTests {
     @Mock private ConflictoInteresRepository conflictoRepository;
     @Mock private AsignacionService asignacionService;
     @Mock private SolicitudEvaluacionMapper mapper;
+    @Mock private InstanciaEvaluacionService instanciaEvaluacionService;
 
     private Estudiante estudiante;
     private Profesor orientador;
@@ -103,6 +104,8 @@ class SolicitudEvaluacionServiceTests {
         Mockito.when(conflictoRepository.existsByTrabajoIdAndEvaluadorId(100L, 30L)).thenReturn(false);
         Mockito.when(asignacionRepository.countByTrabajoIdAndEstado(100L, EstadoAsignacion.ACTIVA)).thenReturn(0L);
         Mockito.when(repository.countByTrabajoIdAndEstado(100L, EstadoInvitacion.PENDIENTE)).thenReturn(0L);
+        // ronda única por defecto — sin instancia activa → usa evaluadoresDefault
+        Mockito.when(instanciaEvaluacionService.instanciaActiva(100L)).thenReturn(java.util.Optional.empty());
         Mockito.when(repository.existsByTrabajoIdAndInvitadoIdAndEstado(
                 Mockito.eq(100L), Mockito.anyLong(), Mockito.eq(EstadoInvitacion.PENDIENTE))).thenReturn(false);
         Mockito.when(repository.save(Mockito.any())).thenAnswer(i -> i.getArgument(0));
@@ -258,5 +261,19 @@ class SolicitudEvaluacionServiceTests {
         Mockito.when(asignacionRepository.countByTrabajoIdAndEstado(100L, EstadoAsignacion.ACTIVA)).thenReturn(3L);
         Assertions.assertThrows(BusinessException.class, () -> service.aceptar(7L, null, evaluador.getId()));
         Mockito.verify(asignacionService, Mockito.never()).crear(Mockito.any());
+    }
+
+    @Test
+    void crear_dimensionaBancaPorInstanciaActiva() {
+        // instancia activa con config de 2 evaluadores; ya hay 2 asignaciones activas → banca llena → error
+        var cfg = new com.academconnect.domain.InstanciaEvaluacionConfig();
+        cfg.setEvaluadoresRequeridos(2);
+        var ie = new com.academconnect.domain.InstanciaEvaluacion();
+        ie.setInstanciaConfig(cfg);
+        Mockito.when(instanciaEvaluacionService.instanciaActiva(100L)).thenReturn(java.util.Optional.of(ie));
+        Mockito.when(asignacionRepository.countByTrabajoIdAndEstado(100L, EstadoAsignacion.ACTIVA)).thenReturn(2L);
+        Mockito.when(repository.countByTrabajoIdAndEstado(100L, EstadoInvitacion.PENDIENTE)).thenReturn(0L);
+        // banca llena (2 activas para N=2 de la instancia) → error
+        Assertions.assertThrows(BusinessException.class, () -> service.crear(req(30L), estudiante.getId()));
     }
 }

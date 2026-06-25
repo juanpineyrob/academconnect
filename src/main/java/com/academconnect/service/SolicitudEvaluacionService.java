@@ -45,8 +45,13 @@ public class SolicitudEvaluacionService {
     private final ConflictoInteresRepository conflictoRepository;
     private final AsignacionService asignacionService;
     private final SolicitudEvaluacionMapper mapper;
+    private final InstanciaEvaluacionService instanciaEvaluacionService;
 
     private int evaluadoresRequeridos(com.academconnect.domain.Trabajo trabajo) {
+        var activa = instanciaEvaluacionService.instanciaActiva(trabajo.getId());
+        if (activa.isPresent()) {
+            return activa.get().getInstanciaConfig().getEvaluadoresRequeridos();
+        }
         return tipoTrabajoConfigRepository.findById(trabajo.getTipo())
                 .orElseThrow(() -> new BusinessException(
                         "No hay configuración de evaluadores para el tipo " + trabajo.getTipo()))
@@ -142,8 +147,15 @@ public class SolicitudEvaluacionService {
         var template = templateRepository.findFirstByEsPorDefectoTrueAndActivoTrue()
                 .orElseThrow(() -> new BusinessException("No hay un template de evaluación por defecto configurado"));
 
-        asignacionService.crear(new AsignacionRequest(
+        var resp = asignacionService.crear(new AsignacionRequest(
                 trabajo.getId(), version.getId(), s.getInvitado().getId(), template.getId(), null));
+        instanciaEvaluacionService.instanciaActiva(trabajo.getId()).ifPresent(ie -> {
+            asignacionRepository.findById(resp.id()).ifPresent(a -> {
+                a.setInstanciaEvaluacion(ie);
+                asignacionRepository.save(a);
+            });
+            instanciaEvaluacionService.marcarEnCurso(ie);
+        });
 
         s.setEstado(EstadoInvitacion.ACEPTADA);
         s.setRespuesta(request != null ? request.respuesta() : null);
