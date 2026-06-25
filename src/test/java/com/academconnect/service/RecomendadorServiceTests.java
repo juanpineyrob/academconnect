@@ -73,6 +73,8 @@ public class RecomendadorServiceTests {
         ReflectionTestUtils.setField(service, "w3", 0.1);
         ReflectionTestUtils.setField(service, "wo1", 0.7);
         ReflectionTestUtils.setField(service, "wo2", 0.3);
+        ReflectionTestUtils.setField(service, "wmin", 0.2);
+        ReflectionTestUtils.setField(service, "wmax", 0.6);
 
         trabajoId = 99L;
         area1 = AreaTematicaFactory.createArea(10L);
@@ -210,6 +212,54 @@ public class RecomendadorServiceTests {
 
         Assertions.assertEquals(1, res.size());
         Assertions.assertEquals(profesor2.getId(), res.get(0).id());
+    }
+
+    @Test
+    void gini_distribucionUniformeEsCero() {
+        Assertions.assertEquals(0.0, invocarGini(java.util.List.of(3L, 3L, 3L)), 1e-9);
+    }
+
+    @Test
+    void gini_listaVaciaOUnSoloEsCero() {
+        Assertions.assertEquals(0.0, invocarGini(java.util.List.of()), 1e-9);
+        Assertions.assertEquals(0.0, invocarGini(java.util.List.of(5L)), 1e-9);
+    }
+
+    @Test
+    void gini_todasCeroEsCero() {
+        Assertions.assertEquals(0.0, invocarGini(java.util.List.of(0L, 0L, 0L)), 1e-9);
+    }
+
+    @Test
+    void gini_valorConocido() {
+        // [0,0,4]: media=4/3; ΣΣ|xi-xj| = pares (0,0)=0, (0,4)=4 x4, = 16; 2*n^2*mu = 2*9*(4/3)=24
+        // G = 16/24 = 0.6667
+        Assertions.assertEquals(16.0 / 24.0, invocarGini(java.util.List.of(0L, 0L, 4L)), 1e-9);
+    }
+
+    @Test
+    void sugerirRevisores_giniDesbalanceadoSubeElPesoDeCarga() {
+        // profesor1 y profesor2 con MISMA afinidad (ambos comparten area1+area2),
+        // cargas muy desbalanceadas → con Gini alto, el de menor carga debe ir primero.
+        Mockito.when(trabajoRepository.findById(trabajoId)).thenReturn(Optional.of(trabajoConAreas));
+        Mockito.when(profesorRepository.findByActivo(true)).thenReturn(List.of(profesor1, profesor2));
+        Mockito.when(externoRepository.findByActivo(true)).thenReturn(List.of());
+        Mockito.when(uatRepository.findByIdUsuarioId(Mockito.anyLong()))
+                .thenReturn(List.of(uat(profesor1, area1), uat(profesor1, area2)));
+        Mockito.when(conflictoRepository.existsByTrabajoIdAndEvaluadorId(Mockito.anyLong(), Mockito.anyLong()))
+                .thenReturn(false);
+        Mockito.when(asignacionRepository.countByEvaluadorIdAndEstado(
+                Mockito.eq(profesor1.getId()), Mockito.any())).thenReturn(10L);
+        Mockito.when(asignacionRepository.countByEvaluadorIdAndEstado(
+                Mockito.eq(profesor2.getId()), Mockito.any())).thenReturn(0L);
+
+        var res = service.sugerirRevisores(trabajoId, 2);
+
+        Assertions.assertEquals(profesor2.getId(), res.get(0).evaluadorId()); // menor carga primero
+    }
+
+    private double invocarGini(java.util.Collection<Long> cargas) {
+        return (double) ReflectionTestUtils.invokeMethod(service, "gini", cargas);
     }
 
     private com.academconnect.domain.UsuarioAreaTematica uat(

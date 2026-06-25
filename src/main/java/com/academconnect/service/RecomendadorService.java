@@ -63,6 +63,12 @@ public class RecomendadorService {
     @Value("${academconnect.algoritmo.orientador.w2:0.3}")
     private double wo2;
 
+    @Value("${academconnect.algoritmo.carga.wmin:0.2}")
+    private double wmin;
+
+    @Value("${academconnect.algoritmo.carga.wmax:0.6}")
+    private double wmax;
+
     private final TrabajoRepository trabajoRepository;
     private final ProfesorRepository profesorRepository;
     private final ExternoRepository externoRepository;
@@ -96,8 +102,10 @@ public class RecomendadorService {
 
         long maxCarga = cargas.values().stream().max(Comparator.naturalOrder()).orElse(0L);
 
+        double g = gini(cargas.values());
+
         List<CandidatoScore> scored = candidatos.stream()
-                .map(c -> puntuar(c, areasTrabajoIds, cargas.get(c.getId()), maxCarga))
+                .map(c -> puntuar(c, areasTrabajoIds, cargas.get(c.getId()), maxCarga, g))
                 .sorted(Comparator.comparingDouble(CandidatoScore::score).reversed())
                 .limit(k)
                 .toList();
@@ -111,7 +119,8 @@ public class RecomendadorService {
             Usuario candidato,
             Set<Long> areasTrabajoIds,
             long cargaAbsoluta,
-            long maxCarga) {
+            long maxCarga,
+            double gini) {
 
         Set<Long> areasEval = uatRepository.findByIdUsuarioId(candidato.getId()).stream()
                 .map(uat -> uat.getId().getAreaId())
@@ -120,9 +129,15 @@ public class RecomendadorService {
         double afinidad = jaccard(areasTrabajoIds, areasEval);
         double cargaNorm = maxCarga == 0 ? 0.0 : (double) cargaAbsoluta / maxCarga;
         double disponibilidad = 1.0;
-        double score = w1 * afinidad + w2 * (1.0 - cargaNorm) + w3 * disponibilidad;
 
-        return new CandidatoScore(candidato, score, afinidad, cargaNorm, disponibilidad);
+        double bloque = w1 + w2;                       // afinidad + carga
+        double f = wmin + (wmax - wmin) * gini;        // fracción del bloque para carga
+        double wCargaEff = bloque * f;
+        double wAfinEff = bloque - wCargaEff;
+        double score = wAfinEff * afinidad + wCargaEff * (1.0 - cargaNorm) + w3 * disponibilidad;
+
+        return new CandidatoScore(candidato, score, afinidad, cargaNorm, disponibilidad,
+                gini, wAfinEff, wCargaEff);
     }
 
     private void persistirRecomendaciones(
@@ -200,6 +215,25 @@ public class RecomendadorService {
                 areasNombres, carga, bd4(afinidad), bd4(score));
     }
 
+    /** Coeficiente de Gini de la distribución de cargas (0 = balanceado, →1 = desbalanceado). */
+    private double gini(java.util.Collection<Long> cargas) {
+        int n = cargas.size();
+        if (n <= 1) return 0.0;
+        long suma = 0L;
+        for (long x : cargas) suma += x;
+        if (suma == 0L) return 0.0;
+        double mu = (double) suma / n;
+        long sumaDiferencias = 0L;
+        var lista = new java.util.ArrayList<>(cargas);
+        for (int i = 0; i < n; i++) {
+            for (int j = 0; j < n; j++) {
+                sumaDiferencias += Math.abs(lista.get(i) - lista.get(j));
+            }
+        }
+        double g = sumaDiferencias / (2.0 * n * n * mu);
+        return Math.max(0.0, Math.min(1.0, g));
+    }
+
     private double jaccard(Set<Long> a, Set<Long> b) {
         if (a.isEmpty() && b.isEmpty()) return 0.0;
         Set<Long> intersection = new HashSet<>(a);
@@ -214,7 +248,10 @@ public class RecomendadorService {
             return OBJECT_MAPPER.writeValueAsString(Map.of(
                     "afinidad", cs.afinidad(),
                     "carga_norm", cs.cargaNorm(),
-                    "disponibilidad", cs.disponibilidad()));
+                    "disponibilidad", cs.disponibilidad(),
+                    "gini", cs.gini(),
+                    "w_afin_eff", cs.wAfinEff(),
+                    "w_carga_eff", cs.wCargaEff()));
         } catch (JsonProcessingException e) {
             return "{}";
         }
@@ -241,6 +278,9 @@ public class RecomendadorService {
             double score,
             double afinidad,
             double cargaNorm,
-            double disponibilidad) {
+            double disponibilidad,
+            double gini,
+            double wAfinEff,
+            double wCargaEff) {
     }
 }
