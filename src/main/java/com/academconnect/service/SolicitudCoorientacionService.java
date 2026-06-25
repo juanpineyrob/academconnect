@@ -19,7 +19,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -35,7 +34,6 @@ public class SolicitudCoorientacionService {
     private final UsuarioRepository usuarioRepository;
     private final CoorientadorRepository coorientadorRepository;
     private final SolicitudCoorientacionMapper mapper;
-    private final ApplicationEventPublisher events;
 
     @Transactional
     public SolicitudCoorientacionResponse crear(SolicitudCoorientacionRequest request, Long estudianteId) {

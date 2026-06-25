@@ -27,8 +27,6 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
-import org.springframework.context.ApplicationEventPublisher;
-
 import java.util.Optional;
 
 @ExtendWith(MockitoExtension.class)
@@ -41,7 +39,6 @@ class SolicitudCoorientacionServiceTests {
     @Mock private UsuarioRepository usuarioRepository;
     @Mock private CoorientadorRepository coorientadorRepository;
     @Mock private SolicitudCoorientacionMapper mapper;
-    @Mock private ApplicationEventPublisher events;
 
     private Estudiante estudiante;
     private Profesor orientador;
