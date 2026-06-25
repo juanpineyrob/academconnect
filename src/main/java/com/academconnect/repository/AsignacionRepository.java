@@ -30,6 +30,8 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
     long countByTrabajoIdAndVersionamientoIdAndEstado(
             Long trabajoId, Long versionamientoId, EstadoAsignacion estado);
 
+    long countByInstanciaEvaluacionIdAndEstado(Long instanciaEvaluacionId, EstadoAsignacion estado);
+
     @Query("SELECT new com.academconnect.dto.CargaEvaluadorDto(a.evaluador.id, a.evaluador.nombre, COUNT(a)) " +
            "FROM Asignacion a WHERE a.estado = com.academconnect.domain.EstadoAsignacion.ACTIVA " +
            "GROUP BY a.evaluador.id, a.evaluador.nombre " +

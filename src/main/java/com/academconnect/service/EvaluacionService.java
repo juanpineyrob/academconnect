@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.academconnect.domain.Asignacion;
+import com.academconnect.domain.InstanciaEvaluacion;
 import com.academconnect.domain.CalificacionCriterio;
 import com.academconnect.domain.EstadoAsignacion;
 import com.academconnect.domain.EstadoEvaluacion;
@@ -50,6 +51,7 @@ public class EvaluacionService {
     private final TrabajoRepository trabajoRepository;
     private final EvaluacionMapper mapper;
     private final ApplicationEventPublisher events;
+    private final InstanciaEvaluacionService instanciaEvaluacionService;
 
     public EvaluacionResponse buscarPorAsignacion(Long asignacionId) {
         return evaluacionRepository.findByAsignacionId(asignacionId)
@@ -151,10 +153,34 @@ public class EvaluacionService {
     }
 
     /**
-     * G17 — Si esta era la última asignación ACTIVA para la versión evaluada, calcula promedio
-     * y fija el veredicto del trabajo (APROBADO si promedio >= umbral, RECHAZADO si no).
+     * G17 — Si esta era la última asignación ACTIVA para la versión evaluada (o instancia),
+     * calcula promedio y delega el veredicto:
+     * <ul>
+     *   <li>Si la asignación pertenece a una {@link InstanciaEvaluacion}, delega a
+     *       {@link InstanciaEvaluacionService#alAprobar} / {@link InstanciaEvaluacionService#alReprobar}.</li>
+     *   <li>Si no (ronda única / legacy), fija directamente el estado del {@link Trabajo}.</li>
+     * </ul>
      */
     private void agregarVeredicto(Asignacion asignacion, BigDecimal umbral) {
+        InstanciaEvaluacion instancia = asignacion.getInstanciaEvaluacion();
+        if (instancia != null) {
+            long activas = asignacionRepository.countByInstanciaEvaluacionIdAndEstado(
+                    instancia.getId(), EstadoAsignacion.ACTIVA);
+            if (activas > 0) return;
+
+            BigDecimal promedio = evaluacionRepository.promedioPorInstancia(instancia.getId());
+            if (promedio == null) return;
+
+            BigDecimal puntaje = promedio.setScale(2, RoundingMode.HALF_UP);
+            if (puntaje.compareTo(umbral) >= 0) {
+                instanciaEvaluacionService.alAprobar(instancia, puntaje);
+            } else {
+                instanciaEvaluacionService.alReprobar(instancia, puntaje);
+            }
+            return;
+        }
+
+        // ---- rama legacy (ronda única) sin cambios ----
         Long trabajoId = asignacion.getTrabajo().getId();
         Long versionId = asignacion.getVersionamiento().getId();
 

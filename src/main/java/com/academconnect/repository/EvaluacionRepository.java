@@ -32,6 +32,12 @@ public interface EvaluacionRepository extends JpaRepository<Evaluacion, Long> {
             @Param("trabajoId") Long trabajoId,
             @Param("versionamientoId") Long versionamientoId);
 
+    /** Promedio de calificacion_final de evaluaciones COMPLETADA para una instancia de evaluación. */
+    @Query("SELECT AVG(e.calificacionFinal) FROM Evaluacion e " +
+           "WHERE e.asignacion.instanciaEvaluacion.id = :instanciaId " +
+           "AND e.estado = com.academconnect.domain.EstadoEvaluacion.COMPLETADA")
+    BigDecimal promedioPorInstancia(@Param("instanciaId") Long instanciaId);
+
     @Query("SELECT COUNT(e) FROM Evaluacion e " +
            "WHERE e.asignacion.evaluador.id = :evaluadorId " +
            "AND e.estado = com.academconnect.domain.EstadoEvaluacion.COMPLETADA")

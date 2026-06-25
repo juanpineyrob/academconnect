@@ -21,6 +21,7 @@ import com.academconnect.domain.Asignacion;
 import com.academconnect.domain.EstadoAsignacion;
 import com.academconnect.domain.EstadoTrabajo;
 import com.academconnect.domain.Evaluacion;
+import com.academconnect.domain.InstanciaEvaluacion;
 import com.academconnect.domain.Profesor;
 import com.academconnect.domain.Trabajo;
 import com.academconnect.dto.CalificacionCriterioRequest;
@@ -56,6 +57,9 @@ public class EvaluacionServiceTests {
 
     @Mock
     private ApplicationEventPublisher events;
+
+    @Mock
+    private InstanciaEvaluacionService instanciaEvaluacionService;
 
     private Long existingAsignacionId;
     private Trabajo trabajo;
@@ -215,5 +219,82 @@ public class EvaluacionServiceTests {
         ArgumentCaptor<Trabajo> captor = ArgumentCaptor.forClass(Trabajo.class);
         Mockito.verify(trabajoRepository).save(captor.capture());
         Assertions.assertEquals(EstadoTrabajo.APROBADO, captor.getValue().getEstado());
+    }
+
+    // ---- Tests para rama por instancia (Task 4b / Task 5) ----
+
+    @Test
+    void agregarVeredicto_porInstancia_apruebaCuandoSuperaUmbral() {
+        // Arrange: asignación ligada a una InstanciaEvaluacion
+        InstanciaEvaluacion instancia = new InstanciaEvaluacion();
+        org.springframework.test.util.ReflectionTestUtils.setField(instancia, "id", 99L);
+
+        Asignacion asignacionConInstancia = AsignacionFactory.createAsignacionActiva(
+                existingAsignacionId, trabajo, evaluador, AsignacionFactory.snapshotConUmbral(6.0));
+        asignacionConInstancia.setInstanciaEvaluacion(instancia);
+
+        Mockito.when(asignacionRepository.findById(existingAsignacionId))
+                .thenReturn(Optional.of(asignacionConInstancia));
+        // 0 asignaciones activas restantes en la instancia
+        Mockito.when(asignacionRepository.countByInstanciaEvaluacionIdAndEstado(
+                99L, EstadoAsignacion.ACTIVA)).thenReturn(0L);
+        // promedio supera el umbral de 6.0
+        Mockito.when(evaluacionRepository.promedioPorInstancia(99L))
+                .thenReturn(new BigDecimal("7.50"));
+
+        service.completar(twoCriteriosRequest);
+
+        Mockito.verify(instanciaEvaluacionService).alAprobar(
+                Mockito.eq(instancia), Mockito.any(java.math.BigDecimal.class));
+        Mockito.verify(instanciaEvaluacionService, Mockito.never()).alReprobar(
+                Mockito.any(), Mockito.any());
+        // la rama legacy NO debe ejecutarse
+        Mockito.verify(trabajoRepository, Mockito.never()).save(Mockito.any());
+    }
+
+    @Test
+    void agregarVeredicto_porInstancia_repruebaBajoUmbral() {
+        // Arrange: asignación ligada a una InstanciaEvaluacion
+        InstanciaEvaluacion instancia = new InstanciaEvaluacion();
+        org.springframework.test.util.ReflectionTestUtils.setField(instancia, "id", 99L);
+
+        Asignacion asignacionConInstancia = AsignacionFactory.createAsignacionActiva(
+                existingAsignacionId, trabajo, evaluador, AsignacionFactory.snapshotConUmbral(6.0));
+        asignacionConInstancia.setInstanciaEvaluacion(instancia);
+
+        Mockito.when(asignacionRepository.findById(existingAsignacionId))
+                .thenReturn(Optional.of(asignacionConInstancia));
+        Mockito.when(asignacionRepository.countByInstanciaEvaluacionIdAndEstado(
+                99L, EstadoAsignacion.ACTIVA)).thenReturn(0L);
+        // promedio por debajo del umbral de 6.0
+        Mockito.when(evaluacionRepository.promedioPorInstancia(99L))
+                .thenReturn(new BigDecimal("4.50"));
+
+        service.completar(twoCriteriosRequest);
+
+        Mockito.verify(instanciaEvaluacionService).alReprobar(
+                Mockito.eq(instancia), Mockito.any(java.math.BigDecimal.class));
+        Mockito.verify(instanciaEvaluacionService, Mockito.never()).alAprobar(
+                Mockito.any(), Mockito.any());
+        Mockito.verify(trabajoRepository, Mockito.never()).save(Mockito.any());
+    }
+
+    @Test
+    void agregarVeredicto_legacy_sinInstancia_fijaEstadoTrabajo() {
+        // asignacionActiva no tiene instanciaEvaluacion (null) → rama legacy
+        // promedio >= umbral (6.0) → APROBADO
+        Mockito.when(evaluacionRepository.promedioPorTrabajoYVersion(Mockito.anyLong(), Mockito.anyLong()))
+                .thenReturn(new BigDecimal("7.00"));
+
+        service.completar(twoCriteriosRequest);
+
+        ArgumentCaptor<Trabajo> captor = ArgumentCaptor.forClass(Trabajo.class);
+        Mockito.verify(trabajoRepository).save(captor.capture());
+        Assertions.assertEquals(EstadoTrabajo.APROBADO, captor.getValue().getEstado());
+        // el engine de instancias nunca debe invocarse
+        Mockito.verify(instanciaEvaluacionService, Mockito.never()).alAprobar(
+                Mockito.any(), Mockito.any());
+        Mockito.verify(instanciaEvaluacionService, Mockito.never()).alReprobar(
+                Mockito.any(), Mockito.any());
     }
 }
