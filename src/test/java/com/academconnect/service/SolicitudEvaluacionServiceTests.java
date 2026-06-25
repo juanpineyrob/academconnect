@@ -227,4 +227,36 @@ class SolicitudEvaluacionServiceTests {
         service.cancelar(7L, estudiante.getId());
         Assertions.assertEquals(EstadoInvitacion.CANCELADA, s.getEstado());
     }
+
+    @Test
+    void crear_fallaSiInvitadoEsCoorientador() {
+        var co = new com.academconnect.domain.Coorientador();
+        co.setUsuario(evaluador);
+        Mockito.when(coorientadorRepository.findByTrabajoId(100L)).thenReturn(List.of(co));
+        Assertions.assertThrows(BusinessException.class, () -> service.crear(req(30L), estudiante.getId()));
+    }
+
+    @Test
+    void rechazar_fallaSiNoEsElInvitado() {
+        SolicitudEvaluacion s = new SolicitudEvaluacion();
+        s.setId(7L);
+        s.setTrabajo(trabajo);
+        s.setInvitado(evaluador);
+        s.setEstado(EstadoInvitacion.PENDIENTE);
+        Mockito.when(repository.findById(7L)).thenReturn(Optional.of(s));
+        Assertions.assertThrows(BusinessException.class, () -> service.rechazar(7L, null, 999L));
+    }
+
+    @Test
+    void aceptar_fallaSiBancaCompleta() {
+        SolicitudEvaluacion s = new SolicitudEvaluacion();
+        s.setId(7L);
+        s.setTrabajo(trabajo);
+        s.setInvitado(evaluador);
+        s.setEstado(EstadoInvitacion.PENDIENTE);
+        Mockito.when(repository.findById(7L)).thenReturn(Optional.of(s));
+        Mockito.when(asignacionRepository.countByTrabajoIdAndEstado(100L, EstadoAsignacion.ACTIVA)).thenReturn(3L);
+        Assertions.assertThrows(BusinessException.class, () -> service.aceptar(7L, null, evaluador.getId()));
+        Mockito.verify(asignacionService, Mockito.never()).crear(Mockito.any());
+    }
 }
