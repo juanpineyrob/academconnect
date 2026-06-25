@@ -119,7 +119,6 @@ class InstanciaEvaluacionServiceTests {
 
     @Test
     void alReprobar_reintentaSiHayCupo() {
-        Mockito.when(trabajoRepository.findById(100L)).thenReturn(Optional.of(trabajo));
         var ie0 = inst(c0, 1, EstadoInstanciaEvaluacion.EN_CURSO); // c0 maxIntentos=2
 
         service.alReprobar(ie0, new BigDecimal("3.00"));
@@ -134,11 +133,37 @@ class InstanciaEvaluacionServiceTests {
 
     @Test
     void alReprobar_sinCupoRechazaTrabajo() {
-        Mockito.when(trabajoRepository.findById(100L)).thenReturn(Optional.of(trabajo));
         var ie1 = inst(c1, 1, EstadoInstanciaEvaluacion.EN_CURSO); // c1 maxIntentos=1
 
         service.alReprobar(ie1, new BigDecimal("2.00"));
 
         Assertions.assertEquals(EstadoTrabajo.RECHAZADO, trabajo.getEstado());
+    }
+
+    @Test
+    void alAprobar_independiente_todasAprobadas_apruebaTrabajo() {
+        Mockito.when(tipoTrabajoConfigRepository.findById(TipoTrabajo.TCC)).thenReturn(Optional.of(tipoCfg(false)));
+        Mockito.when(repository.countByTrabajoIdAndInstanciaConfigIdAndEstado(
+                100L, 1L, EstadoInstanciaEvaluacion.APROBADA)).thenReturn(1L);
+        Mockito.when(repository.countByTrabajoIdAndInstanciaConfigIdAndEstado(
+                100L, 2L, EstadoInstanciaEvaluacion.APROBADA)).thenReturn(1L);
+
+        service.alAprobar(inst(c1, 1, EstadoInstanciaEvaluacion.EN_CURSO), new BigDecimal("9.00"));
+
+        Assertions.assertEquals(EstadoTrabajo.APROBADO, trabajo.getEstado());
+    }
+
+    @Test
+    void alAprobar_independiente_noTodasAprobadas_noApruebaTrabajo() {
+        Mockito.when(tipoTrabajoConfigRepository.findById(TipoTrabajo.TCC)).thenReturn(Optional.of(tipoCfg(false)));
+        Mockito.when(repository.countByTrabajoIdAndInstanciaConfigIdAndEstado(
+                100L, 1L, EstadoInstanciaEvaluacion.APROBADA)).thenReturn(1L);
+        Mockito.when(repository.countByTrabajoIdAndInstanciaConfigIdAndEstado(
+                100L, 2L, EstadoInstanciaEvaluacion.APROBADA)).thenReturn(0L);
+
+        service.alAprobar(inst(c0, 1, EstadoInstanciaEvaluacion.EN_CURSO), new BigDecimal("8.00"));
+
+        Assertions.assertNotEquals(EstadoTrabajo.APROBADO, trabajo.getEstado());
+        Assertions.assertEquals(EstadoTrabajo.EN_DESARROLLO, trabajo.getEstado());
     }
 }
