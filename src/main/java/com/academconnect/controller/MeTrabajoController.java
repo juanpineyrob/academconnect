@@ -32,6 +32,8 @@ public class MeTrabajoController {
     private final TrabajoService service;
     private final UsuarioRepository usuarioRepository;
     private final com.academconnect.service.RecomendadorService recomendadorService;
+    private final com.academconnect.repository.TipoTrabajoConfigRepository tipoTrabajoConfigRepository;
+    private final com.academconnect.repository.TrabajoRepository trabajoRepository;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
@@ -76,6 +78,23 @@ public class MeTrabajoController {
             throw new ResourceNotFoundException("Trabajo", id);
         }
         return recomendadorService.sugerirOrientadores(id);
+    }
+
+    @GetMapping("/{id}/sugerir-evaluadores")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public com.academconnect.dto.SugerenciaBancaResponse sugerirEvaluadores(
+            @PathVariable Long id, Authentication authn) {
+        var trabajo = service.buscarPorId(id);
+        if (trabajo.estudianteId() == null || !trabajo.estudianteId().equals(currentUserId(authn))) {
+            throw new ResourceNotFoundException("Trabajo", id);
+        }
+        var entidad = trabajoRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Trabajo", id));
+        int n = tipoTrabajoConfigRepository.findById(entidad.getTipo())
+                .map(c -> c.getEvaluadoresDefault())
+                .orElse(3);
+        return new com.academconnect.dto.SugerenciaBancaResponse(
+                n, recomendadorService.sugerirRevisores(id, n));
     }
 
     private Long currentUserId(Authentication authn) {
