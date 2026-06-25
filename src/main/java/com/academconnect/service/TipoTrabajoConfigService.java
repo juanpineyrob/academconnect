@@ -48,6 +48,7 @@ public class TipoTrabajoConfigService {
         var savedConfig = repository.save(config);
 
         instanciaRepository.deleteByTipo(tipo);
+        instanciaRepository.flush();
         List<InstanciaEvaluacionConfigInput> entradas =
                 request.instancias() == null ? List.of() : request.instancias();
         List<InstanciaEvaluacionConfig> nuevas = new java.util.ArrayList<>();
