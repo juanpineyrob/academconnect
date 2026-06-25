@@ -58,6 +58,10 @@ public class TemplateEvaluacion extends BaseEntity {
     @Column(nullable = false)
     private boolean activo = true;
 
+    /** Marca la rúbrica genérica usada por defecto al crear asignaciones. Exactamente una en true. */
+    @Column(name = "es_por_defecto", nullable = false)
+    private boolean esPorDefecto = false;
+
     /** Puntaje mínimo (inclusivo) sobre la calificación final agregada para aprobar el trabajo. */
     @Column(name = "umbral_aprobacion", nullable = false, precision = 6, scale = 2)
     private BigDecimal umbralAprobacion;
