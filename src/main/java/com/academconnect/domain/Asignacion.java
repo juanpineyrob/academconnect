@@ -56,4 +56,9 @@ public class Asignacion extends BaseEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sesion_id")
     private SesionEvaluacion sesion;
+
+    /** Instancia de evaluación a la que pertenece esta asignación. Null para asignaciones legacy (ronda única). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "instancia_evaluacion_id")
+    private InstanciaEvaluacion instanciaEvaluacion;
 }
