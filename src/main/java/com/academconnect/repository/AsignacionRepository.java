@@ -25,6 +25,8 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
 
     long countByEvaluadorIdAndEstado(Long evaluadorId, EstadoAsignacion estado);
 
+    long countByTrabajoIdAndEstado(Long trabajoId, EstadoAsignacion estado);
+
     long countByTrabajoIdAndVersionamientoIdAndEstado(
             Long trabajoId, Long versionamientoId, EstadoAsignacion estado);
 
