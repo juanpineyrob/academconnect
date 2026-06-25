@@ -259,6 +259,25 @@ public class RecomendadorServiceTests {
     }
 
     @Test
+    void sugerirOrientadores_giniBalanceadoDominaAfinidad() {
+        // Cargas IGUALES (gini = 0) → el término de carga es idéntico para ambos,
+        // así que la afinidad decide. profesor1 comparte area1+area2 (afinidad alta);
+        // profesor2 sólo otraArea (afinidad 0). Debe ganar profesor1 por afinidad.
+        Mockito.when(trabajoRepository.findById(trabajoId)).thenReturn(Optional.of(trabajoConAreas));
+        Mockito.when(profesorRepository.findByActivo(true)).thenReturn(List.of(profesor1, profesor2));
+        Mockito.when(uatRepository.findByIdUsuarioId(profesor1.getId()))
+                .thenReturn(List.of(uat(profesor1, area1), uat(profesor1, area2)));
+        Mockito.when(uatRepository.findByIdUsuarioId(profesor2.getId()))
+                .thenReturn(List.of(uat(profesor2, otraArea)));
+        Mockito.when(trabajoRepository.countByOrientadorIdAndEstadoNotIn(
+                Mockito.anyLong(), Mockito.anyCollection())).thenReturn(5L); // cargas iguales → gini 0
+
+        var res = service.sugerirOrientadores(trabajoId);
+
+        Assertions.assertEquals(profesor1.getId(), res.get(0).id()); // afinidad decide
+    }
+
+    @Test
     void sugerirOrientadores_giniDesbalanceadoPrefiereMenorCarga() {
         // misma afinidad (ambos comparten area1+area2); cargas desbalanceadas.
         Mockito.when(trabajoRepository.findById(trabajoId)).thenReturn(Optional.of(trabajoConAreas));
