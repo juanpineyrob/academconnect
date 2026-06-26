@@ -49,7 +49,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET,
                                 "/public/**",
                                 "/storage/avatars/**",
+                                "/api/areas-tematicas",
                                 "/api/trabajos/buscar",
+                                "/api/trabajos/*",
                                 "/api/trabajos/*/archivo",
                                 "/api/usuarios/*/perfil",
                                 "/api/usuarios/*/reconocimientos").permitAll()
