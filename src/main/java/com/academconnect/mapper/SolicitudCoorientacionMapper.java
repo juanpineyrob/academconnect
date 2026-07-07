@@ -10,6 +10,8 @@ public interface SolicitudCoorientacionMapper {
 
     @Mapping(source = "trabajo.id", target = "trabajoId")
     @Mapping(source = "trabajo.titulo", target = "trabajoTitulo")
+    @Mapping(source = "trabajo.estudiante.id", target = "solicitanteId")
+    @Mapping(source = "trabajo.estudiante.nombre", target = "solicitanteNombre")
     @Mapping(source = "invitado.id", target = "invitadoId")
     @Mapping(source = "invitado.nombre", target = "invitadoNombre")
     SolicitudCoorientacionResponse toResponse(SolicitudCoorientacion entity);

@@ -7,6 +7,8 @@ public record SolicitudEvaluacionResponse(
         Long id,
         Long trabajoId,
         String trabajoTitulo,
+        Long solicitanteId,
+        String solicitanteNombre,
         Long invitadoId,
         String invitadoNombre,
         EstadoInvitacion estado,

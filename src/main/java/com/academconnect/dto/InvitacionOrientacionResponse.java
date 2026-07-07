@@ -7,6 +7,8 @@ public record InvitacionOrientacionResponse(
         Long id,
         Long trabajoId,
         String trabajoTitulo,
+        Long solicitanteId,
+        String solicitanteNombre,
         Long profesorId,
         String profesorNombre,
         EstadoInvitacion estado,
