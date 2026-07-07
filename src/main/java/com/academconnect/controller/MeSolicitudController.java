@@ -2,9 +2,8 @@ package com.academconnect.controller;
 
 import com.academconnect.dto.SolicitudVinculacionResponse;
 import com.academconnect.exception.ResourceNotFoundException;
-import com.academconnect.mapper.SolicitudVinculacionMapper;
-import com.academconnect.repository.SolicitudVinculacionRepository;
 import com.academconnect.repository.UsuarioRepository;
+import com.academconnect.service.SolicitudVinculacionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -19,24 +18,19 @@ import java.util.List;
 @RequiredArgsConstructor
 public class MeSolicitudController {
 
-    private final SolicitudVinculacionRepository solicitudRepository;
-    private final SolicitudVinculacionMapper mapper;
+    private final SolicitudVinculacionService solicitudService;
     private final UsuarioRepository usuarioRepository;
 
     @GetMapping("/solicitudes")
     @PreAuthorize("hasRole('ESTUDIANTE')")
     public List<SolicitudVinculacionResponse> misSolicitudes(Authentication authn) {
-        Long me = currentUserId(authn);
-        return solicitudRepository.findByEstudianteIdOrderByCreatedAtDesc(me).stream()
-                .map(mapper::toResponse).toList();
+        return solicitudService.listarPorEstudiante(currentUserId(authn));
     }
 
     @GetMapping("/solicitudes-recibidas")
     @PreAuthorize("hasRole('PROFESOR')")
     public List<SolicitudVinculacionResponse> recibidas(Authentication authn) {
-        Long me = currentUserId(authn);
-        return solicitudRepository.findRecibidasPorProfesor(me).stream()
-                .map(mapper::toResponse).toList();
+        return solicitudService.listarRecibidasPorProfesor(currentUserId(authn));
     }
 
     private Long currentUserId(Authentication authn) {

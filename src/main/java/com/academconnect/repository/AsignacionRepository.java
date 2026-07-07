@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 
 import com.academconnect.domain.Asignacion;
 import com.academconnect.domain.EstadoAsignacion;
+import com.academconnect.dto.AsignacionExportRow;
 import com.academconnect.dto.CargaEvaluadorDto;
 
 public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
@@ -37,4 +38,30 @@ public interface AsignacionRepository extends JpaRepository<Asignacion, Long> {
            "GROUP BY a.evaluador.id, a.evaluador.nombre " +
            "ORDER BY COUNT(a) DESC")
     List<CargaEvaluadorDto> cargaActivaPorEvaluador();
+
+    /** Detalle crudo (una fila por asignación) para el export CSV de métricas. */
+    @Query(value = """
+            SELECT
+                t.titulo AS trabajoTitulo,
+                t.tipo AS trabajoTipo,
+                (SELECT string_agg(at.nombre, ', ' ORDER BY at.nombre)
+                   FROM trabajo_area_tematica tat
+                   JOIN area_tematica at ON at.id = tat.area_id
+                  WHERE tat.trabajo_id = t.id) AS areas,
+                iec.nombre AS instanciaNombre,
+                u.nombre AS evaluadorNombre,
+                a.estado AS estadoAsignacion,
+                a.asignada_en AS asignadaEn,
+                a.vencimiento_en AS vencimientoEn,
+                e.calificacion_final AS calificacionFinal,
+                e.estado AS estadoEvaluacion
+            FROM asignacion a
+            JOIN trabajo t ON t.id = a.trabajo_id
+            JOIN usuario u ON u.id = a.evaluador_id
+            LEFT JOIN instancia_evaluacion ie ON ie.id = a.instancia_evaluacion_id
+            LEFT JOIN instancia_evaluacion_config iec ON iec.id = ie.instancia_config_id
+            LEFT JOIN evaluacion e ON e.asignacion_id = a.id
+            ORDER BY a.asignada_en DESC
+            """, nativeQuery = true)
+    List<AsignacionExportRow> exportarFilas();
 }

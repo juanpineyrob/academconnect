@@ -56,9 +56,51 @@ public class SolicitudVinculacionService {
         if (!estudianteRepository.existsById(estudianteId)) {
             throw new ResourceNotFoundException("Estudiante", estudianteId);
         }
-        return solicitudRepository.findByEstudianteId(estudianteId).stream()
+        return solicitudRepository.findByEstudianteIdOrderByCreatedAtDesc(estudianteId).stream()
                 .map(mapper::toResponse)
                 .toList();
+    }
+
+    public List<SolicitudVinculacionResponse> listarRecibidasPorProfesor(Long profesorId) {
+        return solicitudRepository.findRecibidasPorProfesor(profesorId).stream()
+                .map(mapper::toResponse)
+                .toList();
+    }
+
+    /**
+     * Hub de necesidades: el estudiante toma un trabajo publicado directamente, sin pasar por
+     * un pedido pendiente de aprobación del orientador (a diferencia del camino inverso, donde
+     * el estudiante invita a un orientador y ahí sí hace falta que este confirme).
+     */
+    @Transactional
+    public void tomar(Long trabajoId, Long estudianteId) {
+        var trabajo = trabajoRepository.findById(trabajoId)
+                .orElseThrow(() -> new ResourceNotFoundException("Trabajo", trabajoId));
+        var estudiante = estudianteRepository.findById(estudianteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Estudiante", estudianteId));
+
+        if (trabajo.getEstado() != EstadoTrabajo.ABIERTO) {
+            throw new BusinessException("El trabajo no está disponible para tomarlo");
+        }
+        if (trabajo.getEstudiante() != null) {
+            throw new BusinessException("El trabajo ya tiene un estudiante asignado");
+        }
+
+        trabajo.setEstudiante(estudiante);
+        trabajo.setEstado(EstadoTrabajo.EN_DESARROLLO);
+        trabajoRepository.save(trabajo);
+        instanciaEvaluacionService.materializarInicial(trabajo);
+        trabajoService.autoRechazarPendientes(trabajo, "Posición ocupada");
+
+        events.publishEvent(ActividadEvent.of(
+                TipoActividad.TRABAJO_VINCULADO,
+                estudiante.getId(),
+                "TRABAJO", trabajo.getId(),
+                Map.of("trabajoId", trabajo.getId(), "trabajoTitulo", trabajo.getTitulo()),
+                VisibilidadActividad.PARTICIPANTES,
+                trabajo.getOrientador() != null
+                        ? List.of(estudiante.getId(), trabajo.getOrientador().getId())
+                        : List.of(estudiante.getId())));
     }
 
     @Transactional

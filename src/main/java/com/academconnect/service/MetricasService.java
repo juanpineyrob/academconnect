@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.academconnect.domain.EstadoAsignacion;
 import com.academconnect.domain.EstadoTrabajo;
+import com.academconnect.dto.AsignacionExportRow;
 import com.academconnect.dto.CargaEvaluadorDto;
 import com.academconnect.dto.CargaEvaluadorResponse;
 import com.academconnect.dto.MetricasResponse;
@@ -81,6 +82,38 @@ public class MetricasService {
         var cargaPorEvaluador = asignacionRepository.cargaActivaPorEvaluador();
         double gini = calcularGini(cargaPorEvaluador.stream().map(CargaEvaluadorDto::cargaActiva).toList());
         return new MetricasResponse(trabajosPorEstado, tiempoPromedio, cargaPorEvaluador, gini);
+    }
+
+    private static final String[] CABECERA_EXPORT = {
+        "Trabajo", "Tipo", "Areas", "Instancia", "Evaluador", "Estado asignacion",
+        "Asignada en", "Vencimiento", "Calificacion final", "Estado evaluacion",
+    };
+
+    /** Detalle crudo (una fila por asignación) para descargar en Excel/CSV. */
+    public String exportarCsv() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("\uFEFF").append(String.join(",", CABECERA_EXPORT)).append('\n');
+        for (AsignacionExportRow r : asignacionRepository.exportarFilas()) {
+            sb.append(csv(r.getTrabajoTitulo())).append(',')
+              .append(csv(r.getTrabajoTipo())).append(',')
+              .append(csv(r.getAreas())).append(',')
+              .append(csv(r.getInstanciaNombre())).append(',')
+              .append(csv(r.getEvaluadorNombre())).append(',')
+              .append(csv(r.getEstadoAsignacion())).append(',')
+              .append(csv(r.getAsignadaEn() == null ? null : r.getAsignadaEn().toString())).append(',')
+              .append(csv(r.getVencimientoEn() == null ? null : r.getVencimientoEn().toString())).append(',')
+              .append(csv(r.getCalificacionFinal() == null ? null : r.getCalificacionFinal().toString())).append(',')
+              .append(csv(r.getEstadoEvaluacion())).append('\n');
+        }
+        return sb.toString();
+    }
+
+    private String csv(String valor) {
+        if (valor == null) return "";
+        if (valor.contains(",") || valor.contains("\"") || valor.contains("\n")) {
+            return "\"" + valor.replace("\"", "\"\"") + "\"";
+        }
+        return valor;
     }
 
     /**

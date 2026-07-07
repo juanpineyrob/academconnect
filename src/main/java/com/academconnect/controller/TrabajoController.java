@@ -139,6 +139,14 @@ public class TrabajoController {
         return solicitudService.listarPorTrabajo(id);
     }
 
+    /** Hub de necesidades: el estudiante toma el trabajo directamente, sin pedido intermedio. */
+    @PostMapping("/{id}/tomar")
+    @PreAuthorize("hasRole('ESTUDIANTE')")
+    public TrabajoResponse tomar(@PathVariable Long id, Authentication authn) {
+        solicitudService.tomar(id, currentUserId(authn));
+        return service.buscarPorId(id);
+    }
+
     @GetMapping("/{id}/invitaciones")
     @PreAuthorize("isAuthenticated()")
     public List<InvitacionOrientacionResponse> listarInvitaciones(@PathVariable Long id) {
