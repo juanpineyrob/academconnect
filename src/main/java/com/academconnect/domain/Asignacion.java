@@ -37,9 +37,12 @@ public class Asignacion extends BaseEntity {
     @JoinColumn(name = "evaluador_id", nullable = false)
     private Usuario evaluador;
 
-    /** Copia inmutable del template al momento de asignar; el template puede mutar después. */
+    /**
+     * Copia inmutable de la rúbrica al momento en que el evaluador la elige; el template
+     * puede mutar después. NULL hasta que el evaluador selecciona una rúbrica al entrar.
+     */
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "template_snapshot", nullable = false, columnDefinition = "jsonb")
+    @Column(name = "template_snapshot", columnDefinition = "jsonb")
     private String templateSnapshot;
 
     @Column(name = "asignada_en", nullable = false)

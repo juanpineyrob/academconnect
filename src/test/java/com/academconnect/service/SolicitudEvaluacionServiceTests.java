@@ -65,7 +65,6 @@ class SolicitudEvaluacionServiceTests {
     private Externo evaluadorExterno;
     private Trabajo trabajo;
     private Versionamiento version;
-    private TemplateEvaluacion templateDefault;
 
     @BeforeEach
     void setup() {
@@ -85,9 +84,6 @@ class SolicitudEvaluacionServiceTests {
         version = new Versionamiento();
         version.setId(500L);
 
-        templateDefault = new TemplateEvaluacion();
-        templateDefault.setId(1L);
-
         var config = new TipoTrabajoConfig();
         config.setTipo(TipoTrabajo.TCC);
         config.setEvaluadoresDefault(3);
@@ -98,8 +94,6 @@ class SolicitudEvaluacionServiceTests {
         Mockito.when(tipoTrabajoConfigRepository.findById(TipoTrabajo.TCC)).thenReturn(Optional.of(config));
         Mockito.when(versionamientoRepository.findFirstByTrabajoIdOrderByNumeroVersionDesc(100L))
                 .thenReturn(Optional.of(version));
-        Mockito.when(templateRepository.findFirstByEsPorDefectoTrueAndActivoTrue())
-                .thenReturn(Optional.of(templateDefault));
         Mockito.when(coorientadorRepository.findByTrabajoId(100L)).thenReturn(List.of());
         Mockito.when(conflictoRepository.existsByTrabajoIdAndEvaluadorId(100L, 30L)).thenReturn(false);
         Mockito.when(asignacionRepository.countByTrabajoIdAndEstado(100L, EstadoAsignacion.ACTIVA)).thenReturn(0L);
@@ -190,7 +184,8 @@ class SolicitudEvaluacionServiceTests {
         Assertions.assertEquals(100L, cap.getValue().trabajoId());
         Assertions.assertEquals(500L, cap.getValue().versionamientoId());
         Assertions.assertEquals(30L, cap.getValue().evaluadorId());
-        Assertions.assertEquals(1L, cap.getValue().templateEvaluacionId());
+        // La asignación nace sin rúbrica: el evaluador la elige al entrar a evaluar.
+        Assertions.assertNull(cap.getValue().templateEvaluacionId());
     }
 
     @Test

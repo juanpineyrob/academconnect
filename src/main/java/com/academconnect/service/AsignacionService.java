@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.academconnect.domain.Asignacion;
 import com.academconnect.domain.EstadoAsignacion;
 import com.academconnect.domain.EstadoTrabajo;
+import com.academconnect.domain.TemplateEvaluacion;
+import com.academconnect.domain.Visibilidad;
 import com.academconnect.dto.AsignacionRequest;
 import com.academconnect.dto.AsignacionResponse;
 import com.academconnect.exception.BusinessException;
@@ -74,24 +76,31 @@ public class AsignacionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Versionamiento", request.versionamientoId()));
         var evaluador = usuarioRepository.findById(request.evaluadorId())
                 .orElseThrow(() -> new ResourceNotFoundException("Usuario", request.evaluadorId()));
-        var template = templateRepository.findById(request.templateEvaluacionId())
-                .orElseThrow(() -> new ResourceNotFoundException("TemplateEvaluacion", request.templateEvaluacionId()));
 
         if (!version.getTrabajo().getId().equals(trabajo.getId())) {
             throw new BusinessException("La versión no pertenece al trabajo indicado");
         }
-        if (!template.isActivo()) {
-            throw new BusinessException("El template de evaluación no está activo");
-        }
         if (conflictoRepository.existsByTrabajoIdAndEvaluadorId(trabajo.getId(), evaluador.getId())) {
             throw new BusinessException("El evaluador tiene conflicto de interés con este trabajo");
+        }
+
+        // Rúbrica opcional: si no se indica template, la asignación nace sin rúbrica
+        // (snapshot null) y el evaluador la elige la primera vez que entra a evaluar.
+        String snapshot = null;
+        if (request.templateEvaluacionId() != null) {
+            var template = templateRepository.findById(request.templateEvaluacionId())
+                    .orElseThrow(() -> new ResourceNotFoundException("TemplateEvaluacion", request.templateEvaluacionId()));
+            if (!template.isActivo()) {
+                throw new BusinessException("El template de evaluación no está activo");
+            }
+            snapshot = construirSnapshot(template.getCriterios(), template.getUmbralAprobacion());
         }
 
         var asignacion = new Asignacion();
         asignacion.setTrabajo(trabajo);
         asignacion.setVersionamiento(version);
         asignacion.setEvaluador(evaluador);
-        asignacion.setTemplateSnapshot(construirSnapshot(template.getCriterios(), template.getUmbralAprobacion()));
+        asignacion.setTemplateSnapshot(snapshot);
         asignacion.setAsignadaEn(Instant.now());
         asignacion.setVencimientoEn(request.vencimientoEn());
         asignacion.setEstado(EstadoAsignacion.ACTIVA);
@@ -167,6 +176,45 @@ public class AsignacionService {
         } catch (JsonProcessingException e) {
             throw new BusinessException("Error al construir snapshot del template: " + e.getMessage());
         }
+    }
+
+    /**
+     * El evaluador elige (o cambia) la rúbrica de su asignación al entrar a evaluar.
+     * {@code templateEvaluacionId} null ⇒ rúbrica por defecto. Congela el snapshot.
+     */
+    @Transactional
+    public AsignacionResponse seleccionarRubrica(Long asignacionId, Long templateEvaluacionId, String callerEmail) {
+        var asignacion = asignacionRepository.findById(asignacionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Asignacion", asignacionId));
+        var caller = usuarioRepository.findByEmail(callerEmail)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario con email", callerEmail));
+        if (!asignacion.getEvaluador().getId().equals(caller.getId())) {
+            throw new BusinessException("Solo el evaluador asignado puede elegir la rúbrica");
+        }
+        if (asignacion.getEstado() != EstadoAsignacion.ACTIVA) {
+            throw new BusinessException("La asignación no admite cambio de rúbrica");
+        }
+
+        TemplateEvaluacion template;
+        if (templateEvaluacionId != null) {
+            template = templateRepository.findById(templateEvaluacionId)
+                    .orElseThrow(() -> new ResourceNotFoundException("TemplateEvaluacion", templateEvaluacionId));
+            boolean visible = template.isEsPorDefecto()
+                    || template.getVisibilidad() == Visibilidad.PUBLICO
+                    || (template.getAutor() != null && template.getAutor().getId().equals(caller.getId()));
+            if (!visible) {
+                throw new BusinessException("No tenés acceso a esta rúbrica");
+            }
+        } else {
+            template = templateRepository.findFirstByEsPorDefectoTrueAndActivoTrue()
+                    .orElseThrow(() -> new BusinessException("No hay una rúbrica por defecto configurada"));
+        }
+        if (!template.isActivo()) {
+            throw new BusinessException("La rúbrica no está activa");
+        }
+
+        asignacion.setTemplateSnapshot(construirSnapshot(template.getCriterios(), template.getUmbralAprobacion()));
+        return mapper.toResponse(asignacionRepository.save(asignacion));
     }
 
     @Transactional

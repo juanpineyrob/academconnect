@@ -7,6 +7,7 @@ public record AsignacionRequest(
         @NotNull Long trabajoId,
         @NotNull Long versionamientoId,
         @NotNull Long evaluadorId,
-        @NotNull Long templateEvaluacionId,
+        // Opcional: si es null, la asignación nace sin rúbrica y el evaluador la elige al entrar.
+        Long templateEvaluacionId,
         Instant vencimientoEn) {
 }

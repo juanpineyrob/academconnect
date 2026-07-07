@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.academconnect.dto.AsignacionRequest;
 import com.academconnect.dto.AsignacionResponse;
+import com.academconnect.dto.SeleccionRubricaRequest;
 import com.academconnect.dto.SugerenciaEvaluadorResponse;
 import com.academconnect.service.AsignacionService;
 import com.academconnect.service.RecomendadorService;
@@ -51,6 +54,17 @@ public class AsignacionController {
     @PreAuthorize("hasRole('ADMINISTRADOR')")
     public AsignacionResponse cancelar(@PathVariable Long id) {
         return service.cancelar(id);
+    }
+
+    /** El evaluador elige/cambia la rúbrica de su asignación (null ⇒ rúbrica por defecto). */
+    @PostMapping("/asignaciones/{id}/rubrica")
+    @PreAuthorize("hasAnyRole('PROFESOR', 'EXTERNO')")
+    public AsignacionResponse seleccionarRubrica(
+            @PathVariable Long id,
+            @RequestBody(required = false) SeleccionRubricaRequest request,
+            @AuthenticationPrincipal Jwt jwt) {
+        Long templateId = request != null ? request.templateEvaluacionId() : null;
+        return service.seleccionarRubrica(id, templateId, jwt.getSubject());
     }
 
     @PostMapping("/trabajos/{trabajoId}/sugerir-revisores")

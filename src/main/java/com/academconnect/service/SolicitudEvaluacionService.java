@@ -144,11 +144,11 @@ public class SolicitudEvaluacionService {
         }
         var version = versionamientoRepository.findFirstByTrabajoIdOrderByNumeroVersionDesc(trabajo.getId())
                 .orElseThrow(() -> new BusinessException("El trabajo no tiene ninguna versión para evaluar"));
-        var template = templateRepository.findFirstByEsPorDefectoTrueAndActivoTrue()
-                .orElseThrow(() -> new BusinessException("No hay un template de evaluación por defecto configurado"));
 
+        // La asignación nace SIN rúbrica (templateEvaluacionId = null); el evaluador la
+        // elige la primera vez que entra a evaluar.
         var resp = asignacionService.crear(new AsignacionRequest(
-                trabajo.getId(), version.getId(), s.getInvitado().getId(), template.getId(), null));
+                trabajo.getId(), version.getId(), s.getInvitado().getId(), null, null));
         instanciaEvaluacionService.instanciaActiva(trabajo.getId()).ifPresent(ie -> {
             asignacionRepository.findById(resp.id()).ifPresent(a -> {
                 a.setInstanciaEvaluacion(ie);
